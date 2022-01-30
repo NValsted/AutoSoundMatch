@@ -1,0 +1,17 @@
+[tool.pyflow]
+name = "AutoSoundMatch"
+py_version = "3.9"
+version = "0.1.0"
+authors = ["Nicolaj Valsted"]
+
+[tool.pyflow.scripts]
+
+[tool.pyflow.dependencies]
+dawdreamer = "^0.5.8.2"
+click = "^8.0.3"
+colorama = "^0.4.4"
+typer = "^0.4.0"
+sqlmodel = "^0.0.6"
+mido = "^1.2.10"
+
+[tool.pyflow.dev-dependencies]
