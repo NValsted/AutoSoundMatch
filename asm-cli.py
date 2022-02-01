@@ -4,7 +4,7 @@ import typer
 
 from src.database.factory import DBFactory
 from src.daw.factory import SynthHostFactory
-from src.midi.base import generate_midi
+from src.midi.generation import generate_midi
 # from src.utils.flp_wrapper import Project
 
 app = typer.Typer()

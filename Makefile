@@ -14,4 +14,4 @@ prepare-data:
 		--synth-path "./data/vst/Serum_x64.dll" \
 		--engine-url "sqlite:///data/local.db"
 	pyflow asm-cli.py generate-param-triples \
-		--midi-path ${midi_dir}/test.mid
+		--midi-path ${midi_dir}
