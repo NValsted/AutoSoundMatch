@@ -1,13 +1,33 @@
 from typing import Optional
+from glob import glob
+import json
 
 import typer
 
+from src.config.base import Registry
 from src.database.factory import DBFactory
 from src.daw.factory import SynthHostFactory
 from src.midi.generation import generate_midi
 # from src.utils.flp_wrapper import Project
 
 app = typer.Typer()
+
+
+@app.command()
+def register(
+    key: str,
+    value: str,
+    section: str = typer.Option("general"),
+    as_json: bool = typer.Option(False),
+) -> None:
+    """
+    Register a value in the registry.
+    """
+    registry = Registry()
+    if as_json:
+        value = json.loads(value)
+    registry[section] = {key: value}
+    registry.commit()
 
 
 @app.command()
@@ -38,13 +58,24 @@ def setup_relational_models(
 
 @app.command()
 def generate_param_triples(
-    midi_path: str = typer.Option(...)
+    midi_path: str = typer.Option(...),
+    patches_per_midi: int = typer.Option(100),
 ) -> None:
     """
     Generate triples of audio files with corresponding midi files and
     parameters from a VST instrument.
     """
+
+    sh_factory = SynthHostFactory()
+    db_factory = DBFactory()
+
+    synth_host = sh_factory()
+    db = db_factory()
+
     generate_midi(midi_path)
+    for file in glob(f"{midi_path}/*.mid"):
+        for _ in range(patches_per_midi):
+            pass
 
 
 @app.command()

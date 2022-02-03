@@ -3,9 +3,9 @@ from dataclasses import dataclass
 
 from dawdreamer import RenderEngine
 from dawdreamer.dawdreamer import PluginProcessor
+from scipy.stats import uniform
 
 from src.utils.code_generation import sanitize_attribute, get_code_gen_header
-from src.daw.synth_model import SynthParams  # This might not work properly when switching synths
 
 
 @dataclass
@@ -44,8 +44,13 @@ class SynthHost:
 
         return self._synth_model_path
 
-    def set_random_patch():
+    def set_random_patch(self) -> list[tuple[int, float]]:
         """
         Generate random parameters for the synth.
         """
-        pass
+        patch = [
+            (param["index"], uniform(0, 1).rvs())
+            for param in self.synth.get_plugin_parameters_description()
+        ]
+        self.synth.set_parameters(patch)
+        return patch
