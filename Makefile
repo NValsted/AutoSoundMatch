@@ -19,3 +19,7 @@ prepare-data:
 reset:
 	@echo "Resetting project state"
 	pyflow asm-cli.py reset
+
+inspect:
+	@echo "Inspecting project state"
+	pyflow asm-cli.py inspect-registry

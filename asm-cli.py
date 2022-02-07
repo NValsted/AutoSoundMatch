@@ -4,7 +4,7 @@ import json
 
 import typer
 
-from src.config.base import Registry
+from src.config.base import REGISTRY
 from src.config.registry_sections import RegistrySectionsEnum, RegistrySectionsMap
 from src.database.factory import DBFactory
 from src.daw.factory import SynthHostFactory
@@ -19,7 +19,6 @@ def register() -> None:
     """
     Interactive interface to manually register values in the registry.
     """
-    registry = Registry()
     typer.echo(f"Availble sections: {[e.value for e in RegistrySectionsEnum]}")
 
     sections = dict()
@@ -46,9 +45,9 @@ def register() -> None:
 
     for k, v in sections.items():
         sectionModel = RegistrySectionsMap[k](**v)
-        registry.__setattr__(k, sectionModel)
+        REGISTRY.__setattr__(k, sectionModel)
     
-    registry.commit()
+    REGISTRY.commit()
 
 
 @app.command()
@@ -56,7 +55,8 @@ def inspect_registry():
     """
     Display the current registry values.
     """
-    raise NotImplementedError
+    for k, v in dict(REGISTRY).items():
+        typer.echo(f"{k}: {v}")
 
 
 @app.command()

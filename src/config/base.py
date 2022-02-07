@@ -4,13 +4,12 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from src.utils.meta import Singleton
 from src.config.registry_sections import DatabaseSection
 
 REGISTRY_CONFIG_FILE = "src/config/.registry"
 
 
-class Registry(BaseModel, Singleton):
+class Registry(BaseModel):
     """
     Wrapper used for accessing and manipulating the registry file.
     """
@@ -35,11 +34,8 @@ class Registry(BaseModel, Singleton):
 
 with open(REGISTRY_CONFIG_FILE, "rb") as f:
     content = f.read()    
-    if len(content) == 0:
-        Registry()
-    else:
-        try:
-            pickle.loads(content)
-        except pickle.UnpicklingError:
-            warn(f"Registry file is corrupted, resetting")
-            Registry()
+    try:
+        REGISTRY = pickle.loads(content) if content else Registry()
+    except pickle.UnpicklingError:
+        warn(f"Registry file is corrupted, resetting")
+        REGISTRY = Registry()

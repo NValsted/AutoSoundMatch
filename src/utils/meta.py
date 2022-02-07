@@ -10,4 +10,4 @@ class Singleton:
         with cls._lock:
             if Singleton._instance is None:
                 Singleton._instance = object.__new__(cls)
-        return Singleton._instance
+            return Singleton._instance

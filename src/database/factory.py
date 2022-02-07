@@ -5,7 +5,7 @@ from sqlmodel import create_engine
 from src.database.base import Database
 from src.utils.temporary_context import temporary_attrs
 
-from src.config.base import Registry
+from src.config.base import REGISTRY
 from src.config.registry_sections import DatabaseSection
 
 
@@ -19,9 +19,7 @@ class DBFactory:
             return Database(engine=engine, **kwargs)
 
     def register(self):
-        section = DatabaseSection(
+        REGISTRY.DATABASE = DatabaseSection(
             url=self.engine_url,
         )
-        registry = Registry()
-        registry.DATABASE = section
-        registry.commit()
+        REGISTRY.commit()
