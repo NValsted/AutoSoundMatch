@@ -4,7 +4,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from src.config.registry_sections import DatabaseSection
+from src.config.registry_sections import DatabaseSection, SynthSection
 
 REGISTRY_CONFIG_FILE = "src/config/.registry"
 
@@ -14,6 +14,7 @@ class Registry(BaseModel):
     Wrapper used for accessing and manipulating the registry file.
     """
     DATABASE: Optional[DatabaseSection] = None
+    SYNTH: Optional[SynthSection] = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

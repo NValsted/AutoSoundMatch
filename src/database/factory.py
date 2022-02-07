@@ -18,8 +18,9 @@ class DBFactory:
             engine = create_engine(url=tmp.engine_url, **kwargs)
             return Database(engine=engine, **kwargs)
 
-    def register(self):
+    def register(self, commit: bool = False) -> None:
         REGISTRY.DATABASE = DatabaseSection(
             url=self.engine_url,
         )
-        REGISTRY.commit()
+        if commit:
+            REGISTRY.commit()

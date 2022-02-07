@@ -15,6 +15,7 @@ sqlmodel = "^0.0.6"
 mido = "^1.2.10"
 scipy = "^1.8.0rc4"
 tqdm = "^4.62.3"
+numpy = "1.22.*"
 
 [tool.pyflow.dev-dependencies]
 six = "^1.16.0"

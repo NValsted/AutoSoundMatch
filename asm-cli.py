@@ -1,15 +1,18 @@
 from typing import Optional
 from glob import glob
+import inspect
 import json
 
 import typer
+from scipy.io import wavfile
+from tqdm import tqdm
 
 from src.config.base import REGISTRY
 from src.config.registry_sections import RegistrySectionsEnum, RegistrySectionsMap
 from src.database.factory import DBFactory
 from src.daw.factory import SynthHostFactory
+from src.daw.render_model import RenderParams
 from src.midi.generation import generate_midi
-# from src.utils.flp_wrapper import Project
 
 app = typer.Typer()
 
@@ -31,7 +34,12 @@ def register() -> None:
             section, key, value = entry
             as_json = False
         else:
-            raise ValueError(f"Invalid entry: {entry}")
+            typer.echo(f"Invalid entry: {entry}")
+            continue
+
+        if section not in RegistrySectionsEnum:
+            typer.echo(f"Invalid section: {section}")
+            continue
 
         if as_json:
             value = json.loads(value)
@@ -75,13 +83,23 @@ def setup_relational_models(
     Create tables in a local database for storing audio files and VST
     parameters.
     """
+
     db_factory_kwargs = dict()
     if engine_url is not None:
         db_factory_kwargs["engine_url"] = engine_url
-    
+
+    render_params = RenderParams()
+    sh_factory_kwargs = dict(synth_path=synth_path)
+    sh_factory_kwargs.update(
+        {
+            k: v for k, v in dict(render_params).items()
+            if k in inspect.signature(SynthHostFactory).parameters
+        }
+    )
+
     db_factory = DBFactory(**db_factory_kwargs)
-    sh_factory = SynthHostFactory(synth_path=synth_path)
-    
+    sh_factory = SynthHostFactory(**sh_factory_kwargs)
+
     synth_host = sh_factory()
     definition_path = synth_host.create_parameter_table()
     typer.echo(f"Created model and table definition for {synth_path} at {definition_path}")
@@ -91,38 +109,41 @@ def setup_relational_models(
     from src.daw.audio_model import AudioBridgeTable
     db = db_factory()
     db.create_tables()
-    db_factory.register()
+
+    db_factory.register(commit=True)
+    sh_factory.register(commit=True)
 
 
 @app.command()
 def generate_param_triples(
     midi_path: str = typer.Option(...),
-    patches_per_midi: int = typer.Option(100),
+    audio_path: str = typer.Option(...),
+    patches_per_midi: int = typer.Option(10),
 ) -> None:
     """
     Generate triples of audio files with corresponding midi files and
     parameters from a VST instrument.
     """
 
-    sh_factory = SynthHostFactory()
-    db_factory = DBFactory()
+    render_params = RenderParams()
+
+    sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
+    db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
 
     synth_host = sh_factory()
     db = db_factory()
 
     generate_midi(midi_path)
-    for file in glob(f"{midi_path}/*.mid"):
-        for _ in range(patches_per_midi):
-            pass
-
-
-@app.command()
-def extract_midi_from_flp() -> None:
-    """
-    Extract MIDI files from FLP files.
-    """
-    raise NotImplementedError
-    # Project("data/flp/simple.flp")
+    for file in tqdm(glob(f"{midi_path}/.generated/*.mid")):
+        file = file.replace("\\", "/")
+        for i in range(patches_per_midi):
+            synth_host.set_random_patch()
+            audio = synth_host.render(file, render_params)
+            wavfile.write(
+                file.replace(".mid", f"_{i}.wav").replace(midi_path, audio_path),
+                render_params.sample_rate,
+                audio.transpose(),
+            )
 
 
 if __name__ == "__main__":

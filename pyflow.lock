@@ -1,155 +1,155 @@
 [[package]]
-id = 13
+id = 2
+name = "scipy"
+version = "1.8.0"
+source = "pypi+https://pypi.org/pypi/scipy/1.8.0/json"
+dependencies = []
+
+[[package]]
+id = 9
 name = "click"
 version = "8.0.3"
 source = "pypi+https://pypi.org/pypi/click/8.0.3/json"
 dependencies = []
 
 [[package]]
-id = 14
-name = "dawdreamer"
-version = "0.5.8.2"
-source = "pypi+https://pypi.org/pypi/dawdreamer/0.5.8.2/json"
-dependencies = []
-
-[[package]]
-id = 3
+id = 7
 name = "typer"
 version = "0.4.0"
 source = "pypi+https://pypi.org/pypi/typer/0.4.0/json"
 dependencies = []
 
 [[package]]
-id = 1
-name = "tqdm"
-version = "4.62.3"
-source = "pypi+https://pypi.org/pypi/tqdm/4.62.3/json"
-dependencies = []
-
-[[package]]
-id = 21
-name = "packaging"
-version = "21.3"
-source = "pypi+https://pypi.org/pypi/packaging/21.3/json"
-dependencies = ["pyparsing 3.0.7 pypi+https://pypi.org/pypi/pyparsing/3.0.7/json"]
-
-[[package]]
-id = 24
-name = "kiwisolver"
-version = "1.3.2"
-source = "pypi+https://pypi.org/pypi/kiwisolver/1.3.2/json"
-dependencies = []
-
-[[package]]
-id = 25
-name = "fonttools"
-version = "4.29.1"
-source = "pypi+https://pypi.org/pypi/fonttools/4.29.1/json"
-dependencies = []
-
-[[package]]
-id = 12
-name = "mido"
-version = "1.2.10"
-source = "pypi+https://pypi.org/pypi/mido/1.2.10/json"
-dependencies = []
-
-[[package]]
-id = 5
-name = "sqlalchemy2-stubs"
-version = "0.0.2a19"
-source = "pypi+https://pypi.org/pypi/sqlalchemy2-stubs/0.0.2a19/json"
-dependencies = []
-
-[[package]]
-id = 4
-name = "sqlmodel"
-version = "0.0.6"
-source = "pypi+https://pypi.org/pypi/sqlmodel/0.0.6/json"
-dependencies = ["sqlalchemy2-stubs 0.0.2a19 pypi+https://pypi.org/pypi/sqlalchemy2-stubs/0.0.2a19/json", "SQLAlchemy 1.4.28 pypi+https://pypi.org/pypi/SQLAlchemy/1.4.28/json", "pydantic 1.9.0 pypi+https://pypi.org/pypi/pydantic/1.9.0/json"]
-
-[[package]]
-id = 9
+id = 15
 name = "SQLAlchemy"
-version = "1.4.28"
-source = "pypi+https://pypi.org/pypi/SQLAlchemy/1.4.28/json"
+version = "1.4.31"
+source = "pypi+https://pypi.org/pypi/SQLAlchemy/1.4.31/json"
 dependencies = []
-
-[[package]]
-id = 17
-name = "python-dateutil"
-version = "2.8.2"
-source = "pypi+https://pypi.org/pypi/python-dateutil/2.8.2/json"
-dependencies = ["six 1.16.0 pypi+https://pypi.org/pypi/six/1.16.0/json"]
 
 [[package]]
 id = 23
-name = "numpy"
-version = "1.22.1"
-source = "pypi+https://pypi.org/pypi/numpy/1.22.1/json"
-dependencies = []
-
-[[package]]
-id = 8
-name = "typing-extensions"
-version = "4.0.1"
-source = "pypi+https://pypi.org/pypi/typing-extensions/4.0.1/json"
-dependencies = []
-
-[[package]]
-id = 7
-name = "pydantic"
-version = "1.9.0"
-source = "pypi+https://pypi.org/pypi/pydantic/1.9.0/json"
-dependencies = ["typing-extensions 4.0.1 pypi+https://pypi.org/pypi/typing-extensions/4.0.1/json"]
-
-[[package]]
-id = 16
-name = "matplotlib"
-version = "3.5.1"
-source = "pypi+https://pypi.org/pypi/matplotlib/3.5.1/json"
-dependencies = ["packaging 21.3 pypi+https://pypi.org/pypi/packaging/21.3/json", "kiwisolver 1.3.2 pypi+https://pypi.org/pypi/kiwisolver/1.3.2/json", "fonttools 4.29.1 pypi+https://pypi.org/pypi/fonttools/4.29.1/json", "python-dateutil 2.8.2 pypi+https://pypi.org/pypi/python-dateutil/2.8.2/json", "numpy 1.22.1 pypi+https://pypi.org/pypi/numpy/1.22.1/json", "Pillow 9.0.0 pypi+https://pypi.org/pypi/Pillow/9.0.0/json", "cycler 0.11.0 pypi+https://pypi.org/pypi/cycler/0.11.0/json"]
-
-[[package]]
-id = 22
 name = "pyparsing"
 version = "3.0.7"
 source = "pypi+https://pypi.org/pypi/pyparsing/3.0.7/json"
 dependencies = []
 
 [[package]]
-id = 10
-name = "scipy"
-version = "1.8.0rc4"
-source = "pypi+https://pypi.org/pypi/scipy/1.8.0rc4/json"
+id = 26
+name = "fonttools"
+version = "4.29.1"
+source = "pypi+https://pypi.org/pypi/fonttools/4.29.1/json"
 dependencies = []
 
 [[package]]
-id = 20
+id = 1
+name = "mido"
+version = "1.2.10"
+source = "pypi+https://pypi.org/pypi/mido/1.2.10/json"
+dependencies = []
+
+[[package]]
+id = 27
+name = "cycler"
+version = "0.11.0"
+source = "pypi+https://pypi.org/pypi/cycler/0.11.0/json"
+dependencies = []
+
+[[package]]
+id = 21
 name = "Pillow"
-version = "9.0.0"
-source = "pypi+https://pypi.org/pypi/Pillow/9.0.0/json"
+version = "9.0.1"
+source = "pypi+https://pypi.org/pypi/Pillow/9.0.1/json"
 dependencies = []
 
 [[package]]
-id = 2
-name = "colorama"
-version = "0.4.4"
-source = "pypi+https://pypi.org/pypi/colorama/0.4.4/json"
+id = 25
+name = "kiwisolver"
+version = "1.3.2"
+source = "pypi+https://pypi.org/pypi/kiwisolver/1.3.2/json"
 dependencies = []
 
 [[package]]
 id = 18
+name = "python-dateutil"
+version = "2.8.2"
+source = "pypi+https://pypi.org/pypi/python-dateutil/2.8.2/json"
+dependencies = ["six 1.16.0 pypi+https://pypi.org/pypi/six/1.16.0/json"]
+
+[[package]]
+id = 19
 name = "six"
 version = "1.16.0"
 source = "pypi+https://pypi.org/pypi/six/1.16.0/json"
 dependencies = []
 
 [[package]]
-id = 26
-name = "cycler"
-version = "0.11.0"
-source = "pypi+https://pypi.org/pypi/cycler/0.11.0/json"
+id = 6
+name = "tqdm"
+version = "4.62.3"
+source = "pypi+https://pypi.org/pypi/tqdm/4.62.3/json"
 dependencies = []
+
+[[package]]
+id = 14
+name = "typing-extensions"
+version = "4.0.1"
+source = "pypi+https://pypi.org/pypi/typing-extensions/4.0.1/json"
+dependencies = []
+
+[[package]]
+id = 5
+name = "dawdreamer"
+version = "0.5.8.2"
+source = "pypi+https://pypi.org/pypi/dawdreamer/0.5.8.2/json"
+dependencies = []
+
+[[package]]
+id = 13
+name = "pydantic"
+version = "1.9.0"
+source = "pypi+https://pypi.org/pypi/pydantic/1.9.0/json"
+dependencies = ["typing-extensions 4.0.1 pypi+https://pypi.org/pypi/typing-extensions/4.0.1/json"]
+
+[[package]]
+id = 11
+name = "sqlalchemy2-stubs"
+version = "0.0.2a19"
+source = "pypi+https://pypi.org/pypi/sqlalchemy2-stubs/0.0.2a19/json"
+dependencies = []
+
+[[package]]
+id = 24
+name = "numpy"
+version = "1.22.2"
+source = "pypi+https://pypi.org/pypi/numpy/1.22.2/json"
+dependencies = []
+
+[[package]]
+id = 4
+name = "colorama"
+version = "0.4.4"
+source = "pypi+https://pypi.org/pypi/colorama/0.4.4/json"
+dependencies = []
+
+[[package]]
+id = 17
+name = "matplotlib"
+version = "3.5.1"
+source = "pypi+https://pypi.org/pypi/matplotlib/3.5.1/json"
+dependencies = ["numpy 1.22.2 pypi+https://pypi.org/pypi/numpy/1.22.2/json", "kiwisolver 1.3.2 pypi+https://pypi.org/pypi/kiwisolver/1.3.2/json", "packaging 21.3 pypi+https://pypi.org/pypi/packaging/21.3/json", "Pillow 9.0.1 pypi+https://pypi.org/pypi/Pillow/9.0.1/json", "fonttools 4.29.1 pypi+https://pypi.org/pypi/fonttools/4.29.1/json", "cycler 0.11.0 pypi+https://pypi.org/pypi/cycler/0.11.0/json", "python-dateutil 2.8.2 pypi+https://pypi.org/pypi/python-dateutil/2.8.2/json"]
+
+[[package]]
+id = 10
+name = "sqlmodel"
+version = "0.0.6"
+source = "pypi+https://pypi.org/pypi/sqlmodel/0.0.6/json"
+dependencies = ["SQLAlchemy 1.4.31 pypi+https://pypi.org/pypi/SQLAlchemy/1.4.31/json", "sqlalchemy2-stubs 0.0.2a19 pypi+https://pypi.org/pypi/sqlalchemy2-stubs/0.0.2a19/json", "pydantic 1.9.0 pypi+https://pypi.org/pypi/pydantic/1.9.0/json"]
+
+[[package]]
+id = 22
+name = "packaging"
+version = "21.3"
+source = "pypi+https://pypi.org/pypi/packaging/21.3/json"
+dependencies = ["pyparsing 3.0.7 pypi+https://pypi.org/pypi/pyparsing/3.0.7/json"]
 
 [metadata]

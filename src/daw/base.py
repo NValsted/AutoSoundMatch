@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from dawdreamer import RenderEngine
 from dawdreamer.dawdreamer import PluginProcessor
 from scipy.stats import uniform
+import numpy as np
 
+from src.daw.render_model import RenderParams
 from src.utils.code_generation import sanitize_attribute, get_code_gen_header
 
 
@@ -52,5 +54,13 @@ class SynthHost:
             (param["index"], uniform(0, 1).rvs())
             for param in self.synth.get_plugin_parameters_description()
         ]
-        self.synth.set_parameters(patch)
+        self.synth.set_patch(patch)
         return patch
+
+    def render(self, midi_path: str, render_params: RenderParams) -> np.ndarray:
+        """
+        load the midi file and and an audio file.
+        """
+        self.synth.load_midi(midi_path)        
+        self.engine.render(render_params.duration)
+        return self.engine.get_audio()
