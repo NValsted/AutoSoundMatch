@@ -6,8 +6,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.sql.schema import Table
 from sqlmodel import create_engine, SQLModel, Session
 
-
 ModelType = TypeVar("ModelType", bound=SQLModel)
+
 
 @dataclass
 class Database:

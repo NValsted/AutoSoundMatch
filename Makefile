@@ -15,3 +15,7 @@ prepare-data:
 		--engine-url "sqlite:///data/local.db"
 	pyflow asm-cli.py generate-param-triples \
 		--midi-path ${midi_dir}
+
+reset:
+	@echo "Resetting project state"
+	pyflow asm-cli.py reset

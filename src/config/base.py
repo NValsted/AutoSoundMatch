@@ -1,68 +1,45 @@
-from typing import Any, Union
+import pickle
 from warnings import warn
-from dataclasses import dataclass
-from configparser import ConfigParser, SectionProxy
+from typing import Any, Optional
+
+from pydantic import BaseModel
 
 from src.utils.meta import Singleton
+from src.config.registry_sections import DatabaseSection
 
-REGISTRY_CONFIG_FILE = "src/config/.registry.cfg"
-SECTION_SEPARATOR = ";"
-
-
-@dataclass
-class StateChange:
-    previous: Any = None
-    current: Any = None
+REGISTRY_CONFIG_FILE = "src/config/.registry"
 
 
-class Registry(Singleton, ConfigParser):
+class Registry(BaseModel, Singleton):
     """
     Wrapper used for accessing and manipulating the registry file.
     """
-    _state_changes: dict[StateChange]
+    DATABASE: Optional[DatabaseSection] = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.read(REGISTRY_CONFIG_FILE)
-        self._state_changes = dict()
 
     def is_modified(self) -> bool:
-        return len(self._state_changes) > 0
+        return bool(self._state_changes)
 
     def commit(self) -> None:
-        print(self._state_changes)
-        with open(REGISTRY_CONFIG_FILE, "w") as f:
-            self.write(f)
-        self._state_changes = dict()
+        with open(REGISTRY_CONFIG_FILE, "wb") as f:
+            pickle.dump(self, f)
 
-    def refresh(self) -> None:
-        if self.is_modified():
-            warn("Refreshing the registry without committing changes first")
-        self.read(REGISTRY_CONFIG_FILE)
-        self._state_changes = dict()
+    def __getattribute__(self, __name: str) -> Any:
+        attr = super().__getattribute__(__name)
+        if attr is None:
+            warn(f"Section {__name} is not initialized")
+        return attr
 
-    def __getitem__(self, section: str) -> SectionProxy:
-        if SECTION_SEPARATOR in section:
-            section, subkey = section.split(SECTION_SEPARATOR)
-            return super().__getitem__(section)[subkey]
-        return super().__getitem__(section)
 
-    def __setitem__(self, section: str, options: dict[str, Any]) -> None:
-        subkey, value = options.popitem()
-        key = f"{section}{SECTION_SEPARATOR}{subkey}"
-        
-        state_change = StateChange(previous=None, current=value)
-        
+with open(REGISTRY_CONFIG_FILE, "rb") as f:
+    content = f.read()    
+    if len(content) == 0:
+        Registry()
+    else:
         try:
-            state_change.previous = self[key]
-            if key in self._state_changes:
-                state_change.previous = self._state_changes[key].previous
-        except KeyError:
-            pass
-        
-        if state_change.previous != state_change.current:
-            self._state_changes[key] = state_change
-        elif key in self._state_changes:
-            del self._state_changes[key]
-
-        return super().__setitem__(section, options)
+            pickle.loads(content)
+        except pickle.UnpicklingError:
+            warn(f"Registry file is corrupted, resetting")
+            Registry()

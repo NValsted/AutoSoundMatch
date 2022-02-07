@@ -5,6 +5,7 @@ import json
 import typer
 
 from src.config.base import Registry
+from src.config.registry_sections import RegistrySectionsEnum, RegistrySectionsMap
 from src.database.factory import DBFactory
 from src.daw.factory import SynthHostFactory
 from src.midi.generation import generate_midi
@@ -14,20 +15,56 @@ app = typer.Typer()
 
 
 @app.command()
-def register(
-    key: str,
-    value: str,
-    section: str = typer.Option("general"),
-    as_json: bool = typer.Option(False),
-) -> None:
+def register() -> None:
     """
-    Register a value in the registry.
+    Interactive interface to manually register values in the registry.
     """
     registry = Registry()
-    if as_json:
-        value = json.loads(value)
-    registry[section] = {key: value}
+    typer.echo(f"Availble sections: {[e.value for e in RegistrySectionsEnum]}")
+
+    sections = dict()
+    
+    while (entry := typer.prompt("Entry (leave blank to continue)", default="")) != "":
+        entry = entry.split(" ")
+        if len(entry) == 4:
+            section, key, value, as_json = entry
+        elif len(entry) == 3:
+            section, key, value = entry
+            as_json = False
+        else:
+            raise ValueError(f"Invalid entry: {entry}")
+
+        if as_json:
+            value = json.loads(value)
+        sections[section] = sections.get(section, dict())
+        sections[section][key] = value
+
+    typer.echo("Staged changes:")
+    for section, section_dict in sections.items():
+        typer.echo(f"{section}: {section_dict}")
+    typer.confirm("Are you sure you want to register these values?", abort=True)
+
+    for k, v in sections.items():
+        sectionModel = RegistrySectionsMap[k](**v)
+        registry.__setattr__(k, sectionModel)
+    
     registry.commit()
+
+
+@app.command()
+def inspect_registry():
+    """
+    Display the current registry values.
+    """
+    raise NotImplementedError
+
+
+@app.command()
+def reset():
+    """
+    Reset the registry to default values and remove generated data.
+    """
+    raise NotImplementedError
 
 
 @app.command()
@@ -54,6 +91,7 @@ def setup_relational_models(
     from src.daw.audio_model import AudioBridgeTable
     db = db_factory()
     db.create_tables()
+    db_factory.register()
 
 
 @app.command()
@@ -83,7 +121,7 @@ def extract_midi_from_flp() -> None:
     """
     Extract MIDI files from FLP files.
     """
-    raise NotImplementedError()
+    raise NotImplementedError
     # Project("data/flp/simple.flp")
 
 
