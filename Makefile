@@ -1,5 +1,12 @@
 midi_dir := data/midi
 audio_dir := data/audio
+docker_image := nvalsted/autosoundmatch:latest
+
+build-image:
+	sudo docker build . -t ${docker_image}
+
+run-image-interactive:
+	docker run --rm -it ${docker_image}
 
 fetch-resources:
 	@echo "NOT YET IMPLEMENTED"
