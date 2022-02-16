@@ -1,14 +1,17 @@
-[tool.pyflow]
+[tool.poetry]
 name = "AutoSoundMatch"
-py_version = "3.9"
 version = "0.1.0"
+description = "Library for automatically estimating synthesizer parameters to reproduce a given sound with support for polyphonic audio signals"
 repository = "https://github.com/NValsted/AutoSoundMatch"
 license = "GPL-3.0"
 authors = ["Nicolaj Valsted"]
 
-[tool.pyflow.scripts]
+packages = [
+    { include = "src" }
+]
 
-[tool.pyflow.dependencies]
+[tool.poetry.dependencies]
+python = ">=3.9, <3.11"
 # dawdreamer = "^0.5.8.2"  # Docker image builds dawdreamer from source, because there are some issues with dawdreamer on PyPI https://github.com/DBraun/DawDreamer/issues/65
 click = "^8.0.3"
 colorama = "^0.4.4"
@@ -19,6 +22,10 @@ numpy = "1.21.*"
 scipy = "^1.8.0rc4"
 tqdm = "^4.62.3"
 
-[tool.pyflow.dev-dependencies]
+[tool.poetry.dev-dependencies]
 six = "^1.16.0"
 matplotlib = "^3.5.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

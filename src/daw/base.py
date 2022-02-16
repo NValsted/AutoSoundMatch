@@ -1,8 +1,7 @@
 import os
 from dataclasses import dataclass
 
-from dawdreamer import RenderEngine
-from dawdreamer.dawdreamer import PluginProcessor
+from dawdreamer import RenderEngine, PluginProcessor
 from scipy.stats import uniform
 import numpy as np
 

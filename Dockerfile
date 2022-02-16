@@ -3,8 +3,12 @@ FROM ubuntu:20.04
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
+RUN apt update -yq && apt install software-properties-common -yq
+RUN add-apt-repository ppa:deadsnakes/ppa
+RUN apt install python3.9 -yq
+
 RUN apt-get update -yq && apt-get install -yq \
-    wget \
+    curl \
     git \
     make \
     faust \
@@ -26,15 +30,16 @@ RUN apt-get update -yq && apt-get install -yq \
     libsamplerate0 
 RUN apt-get clean -y
 
-# Download/Install Pyflow
-RUN wget https://github.com/David-OConnor/pyflow/releases/download/0.3.1/pyflow_0.3.1_amd64.deb
-RUN dpkg -i pyflow_0.3.1_amd64.deb
+# Download/Install poetry
+RUN curl -sSL https://install.python-poetry.org | python3.9 -
+ENV PATH=/root/.local/bin:$PATH
+RUN poetry config virtualenvs.create true
+RUN poetry config virtualenvs.in-project true
 
-# Copy current state of this repo and setup Python environment with Pyflow
+# Copy current state of this repo and setup Python environment with poetry
 COPY . /AutoSoundMatch/
 WORKDIR /AutoSoundMatch/
-ENV RUST_BACKTRACE=full
-RUN yes 1 | pyflow install
+RUN poetry install
 
 # Build DawDreamer
 WORKDIR /
@@ -52,6 +57,6 @@ RUN ldconfig
 RUN make CONFIG=Release
 WORKDIR /DawDreamer/
 RUN python3.9 setup.py install
-RUN ln -s /DawDreamer/dawdreamer/dawdreamer.so /AutoSoundMatch/__pypackages__/3.9/lib/
+RUN ln -s /DawDreamer/dawdreamer/dawdreamer.so /AutoSoundMatch/.venv/lib/python3.9/site-packages/
 
 WORKDIR /AutoSoundMatch/
