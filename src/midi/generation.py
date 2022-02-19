@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import os
 import random
 from shutil import rmtree
@@ -7,6 +8,19 @@ from mido import MidiFile
 from scipy.stats import truncnorm, randint
 
 from src.midi.base import ASMMidiNote, ASMMidiTrack
+from src.utils.distributions.base import EmpiricalDistribution
+
+
+@dataclass
+class MidiSnippetProperties:
+    polyphony_ratio: float = 0.5
+    max_voices: int = 8
+
+
+@dataclass
+class MidiSnippetDistributions:
+    polyphony: EmpiricalDistribution
+    voices: EmpiricalDistribution
 
 
 def generate_midi(target_dir: str, number_of_files: int = 50):
@@ -54,7 +68,7 @@ def generate_midi(target_dir: str, number_of_files: int = 50):
         file.save(f"{result_dir}/{i}.mid")
 
 
-def partition_midi(polyphony_ratio=0.5, max_voices=8):
+def partition_midi(properties: MidiSnippetProperties):
     """
     This takes a collection of MIDI files and partitions them into
     fixed-size snippets with desired properties.
