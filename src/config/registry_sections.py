@@ -3,6 +3,8 @@ from enum import Enum, unique
 
 from pydantic import BaseModel
 
+from src.flow_synthesizer.base import ModelEnum, FlowTypeEnum
+
 
 class DatabaseSection(BaseModel):
     url: str
@@ -18,13 +20,31 @@ class SynthSection(BaseModel):
     duration: float = 1.0
 
 
+class DatasetSection(BaseModel):
+    dim: list[int]
+
+
+class FlowSynthSection(BaseModel):
+    encoding_dim: int
+    latent_dim: int
+    model: ModelEnum
+    flow_type: FlowTypeEnum
+    flow_length: int
+    kernel: int
+    dilation: int
+
+
 @unique
 class RegistrySectionsEnum(str, Enum):
     DATABASE = "DATABASE"
     SYNTH = "SYNTH"
+    DATASET = "DATASET"
+    FLOWSYNTH = "FLOWSYNTH"
 
 
 RegistrySectionsMap = dict(
     DATABASE=DatabaseSection,
     SYNTH=SynthSection,
+    DATASET=DatasetSection,
+    FLOWSYNTH=FlowSynthSection,
 )

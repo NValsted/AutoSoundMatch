@@ -4,7 +4,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from src.config.registry_sections import DatabaseSection, SynthSection
+from src.config.registry_sections import DatabaseSection, SynthSection, DatasetSection, FlowSynthSection
 
 REGISTRY_CONFIG_FILE = "src/config/.registry"
 
@@ -15,6 +15,8 @@ class Registry(BaseModel):
     """
     DATABASE: Optional[DatabaseSection] = None
     SYNTH: Optional[SynthSection] = None
+    DATASET: Optional[DatasetSection] = None
+    FLOWSYNTH: Optional[FlowSynthSection] = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
