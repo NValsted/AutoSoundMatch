@@ -1,0 +1,3 @@
+[submodule "src/flow_synthesizer/acids_ircam_flow_synthesizer"]
+	path = src/flow_synthesizer/acids_ircam_flow_synthesizer
+	url = https://github.com/acids-ircam/flow_synthesizer.git

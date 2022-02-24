@@ -6,6 +6,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt update -yq && apt install software-properties-common -yq
 RUN add-apt-repository ppa:deadsnakes/ppa
 RUN apt install python3.9 -yq
+RUN ln -s /usr/bin/python3.9 /usr/bin/python
 
 RUN apt-get update -yq && apt-get install -yq \
     curl \

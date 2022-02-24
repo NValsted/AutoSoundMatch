@@ -3,7 +3,11 @@ audio_dir := data/audio
 docker_image := nvalsted/autosoundmatch:latest
 
 build-image:
-	sudo docker build . -t ${docker_image}
+ifeq ($(OS),Windows_NT)
+	docker build --no-cache . -t ${docker_image}
+else
+	sudo docker build --no-cache . -t ${docker_image}
+endif
 
 run-image-interactive:
 	docker run --rm -it ${docker_image}

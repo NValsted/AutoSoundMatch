@@ -11,3 +11,8 @@ class Singleton:
             if Singleton._instance is None:
                 Singleton._instance = object.__new__(cls)
             return Singleton._instance
+
+
+class AttributeWrapper:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
