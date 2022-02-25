@@ -3,7 +3,14 @@ from enum import Enum, unique
 
 from pydantic import BaseModel
 
-from src.flow_synthesizer.base import ModelEnum, FlowTypeEnum
+from src.flow_synthesizer.base import (
+    AEBaseModelEnum,
+    ModelEnum,
+    FlowTypeEnum,
+    RegressorEnum,
+    LossEnum,
+    DisentanglingModelEnum
+)
 
 
 class DatabaseSection(BaseModel):
@@ -21,17 +28,27 @@ class SynthSection(BaseModel):
 
 
 class DatasetSection(BaseModel):
-    dim: list[int]
+    in_dim: list[int]
+    out_dim: list[int]
 
 
 class FlowSynthSection(BaseModel):
     encoding_dim: int
     latent_dim: int
+    ae_base: AEBaseModelEnum
     model: ModelEnum
-    flow_type: FlowTypeEnum
-    flow_length: int
+    flow_type: Optional[FlowTypeEnum]
+    flow_length: Optional[int]
     kernel: int
     dilation: int
+    regressor: RegressorEnum
+    regressor_flow_type: Optional[FlowTypeEnum]
+    regressor_hidden_dim: int
+    regressor_layers: int
+    reconstruction_loss: LossEnum
+    disentangling_model: Optional[DisentanglingModelEnum]
+    disentangling_layers: int
+    semantic_dim: int = -1
 
 
 @unique
