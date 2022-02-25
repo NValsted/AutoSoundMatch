@@ -1,6 +1,7 @@
 import inspect
 from typing import Callable, Optional, Union
 from dataclasses import dataclass
+from functools import reduce
 
 from torch import nn
 
@@ -11,6 +12,7 @@ from src.config.registry_sections import DatasetSection, FlowSynthSection
 from src.flow_synthesizer.base import (
     ModelWrapper,
     AEBaseModelEnum,
+    EDLayerEnum,
     ModelEnum,
     FlowTypeEnum,
     RegressorEnum,
@@ -20,6 +22,7 @@ from src.flow_synthesizer.base import (
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.loss import multinomial_loss, multinomial_mse_loss
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.flows.flow import NormalizingFlow
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.disentangling import DisentanglingFlow
+from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.regression import BayesianRegressor, FlowPredictor
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.basic import (
     construct_encoder_decoder,
     construct_flow,
@@ -38,7 +41,10 @@ class ModelFactory:
     out_dim: list[int]
     encoding_dim: int
     latent_dim: int
+    channels: int
+    hidden_dim: int
     ae_base: AEBaseModelEnum
+    ed_layer: EDLayerEnum
     model: ModelEnum
     flow_type: Optional[FlowTypeEnum]
     flow_length: Optional[int]
@@ -55,12 +61,12 @@ class ModelFactory:
 
     def __call__(self, *args, **kwargs) -> ModelWrapper:
         with temporary_attrs(self, *args, **kwargs) as tmp:
-            if tmp.model == ModelEnum.GatedMLP:
-                raise NotImplementedError
+            if tmp.model in (ModelEnum.MLP, ModelEnum.GatedMLP):
+                model = tmp._MLP()
                 return ModelWrapper(model=model)
 
-            elif tmp.model == ModelEnum.GatedCNN:
-                raise NotImplementedError
+            elif tmp.model == (ModelEnum.CNN, ModelEnum.ResCNN, ModelEnum.GatedCNN):
+                model = tmp._CNN()
                 return ModelWrapper(model=model)
 
             else:
@@ -111,11 +117,40 @@ class ModelFactory:
 
                 return ModelWrapper(model=model)  # TODO: .to(device)
 
+    def _MLP(self) -> GatedMLP:
+        constructor = self.model.value
+        return constructor(
+            in_size=reduce(lambda a, b: a * b, self.in_dim),
+            out_size=self.out_dim,
+            hidden_size=self.hidden_dim,
+            n_layers=self.n_layers,
+        )
+
+    def _CNN(self) -> GatedCNN:
+        constructor = self.model.value
+        return constructor(
+            in_size=self.in_dim,
+            out_size=self.out_dim,
+            channels=self.channels,
+            n_layers=4,  # TODO : static in train.py but might parametrize here
+            hidden_size=self.hidden_dim,
+            n_mlp=3,  # TODO : static in train.py but might parametrize here,
+            args=AttributeWrapper(
+                kernel=self.kernel,
+                dilation=self.dilation,
+            ),
+        )
+
     def _encoder_decoder(self) -> tuple[Union[GatedMLP, GatedCNN], Union[DecodeMLP, DecodeCNN]]:
         return construct_encoder_decoder(
             in_size=self.in_dim,
             enc_size=self.encoding_dim,
             latent_size=self.latent_dim,
+            channels=self.channels,
+            n_layers=self.n_layers,
+            hidden_size=self.hidden_dim,
+            n_mlp=self.n_layers // 2,
+            type_mod=self.ed_layer.value,
             args=AttributeWrapper(
                 kernel=self.kernel,
                 dilation=self.dilation,
@@ -134,7 +169,7 @@ class ModelFactory:
         )
         return flow
 
-    def _regressor(self):
+    def _regressor(self) -> Union[FlowPredictor, BayesianRegressor, nn.Sequential]:
         if self.regressor_flow_type is None and self.regressor != RegressorEnum.MLP:
             raise ValueError("regressor_flow_type is required with current parameters")
         return construct_regressor(

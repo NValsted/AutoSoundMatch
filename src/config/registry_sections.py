@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from src.flow_synthesizer.base import (
     AEBaseModelEnum,
+    EDLayerEnum,
     ModelEnum,
     FlowTypeEnum,
     RegressorEnum,
@@ -35,7 +36,10 @@ class DatasetSection(BaseModel):
 class FlowSynthSection(BaseModel):
     encoding_dim: int
     latent_dim: int
+    channels: int
+    hidden_dim: int
     ae_base: AEBaseModelEnum
+    ed_layer: EDLayerEnum
     model: ModelEnum
     flow_type: Optional[FlowTypeEnum]
     flow_length: Optional[int]

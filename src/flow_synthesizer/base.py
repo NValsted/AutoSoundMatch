@@ -1,5 +1,6 @@
 from enum import Enum
 from dataclasses import dataclass
+from functools import partial
 
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.vae.ae import AE, DisentanglingAE, RegressionAE
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.vae.vae import VAE
@@ -13,6 +14,14 @@ class AEBaseModelEnum(Enum):
     VAE = VAE
     WAE = WAE
     VAEFlow = VAEFlow
+
+
+class EDLayerEnum(str, Enum):
+    mlp = "mlp"
+    gated_mlp = "gated_mlp"
+    cnn = "cnn"
+    res_cnn = "res_cnn"
+    gated_cnn = "gated_cnn"
 
 
 class FlowTypeEnum(str, Enum):
@@ -29,8 +38,11 @@ class FlowTypeEnum(str, Enum):
 
 
 class ModelEnum(Enum):
-    GatedMLP = GatedMLP
-    GatedCNN = GatedCNN
+    MLP = partial(GatedMLP, type_mod="normal")
+    GatedMLP = partial(GatedMLP, type_mod="gated")
+    CNN = partial(GatedCNN, type_mod="normal")
+    ResCNN = partial(GatedCNN, type_mod="residual")
+    GatedCNN = partial(GatedCNN, type_mod="gated")
     RegressionAE = RegressionAE
     DisentanglingAE = DisentanglingAE
 
