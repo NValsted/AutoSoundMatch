@@ -1,5 +1,5 @@
-from sqlmodel import SQLModel, Field
 from sqlalchemy import UniqueConstraint
+from sqlmodel import Field, SQLModel
 
 
 class AudioBridge(SQLModel):

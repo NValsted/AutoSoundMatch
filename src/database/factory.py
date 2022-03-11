@@ -2,11 +2,10 @@ from dataclasses import dataclass
 
 from sqlmodel import create_engine
 
-from src.database.base import Database
-from src.utils.temporary_context import temporary_attrs
-
 from src.config.base import REGISTRY
 from src.config.registry_sections import DatabaseSection
+from src.database.base import Database
+from src.utils.temporary_context import temporary_attrs
 
 
 @dataclass

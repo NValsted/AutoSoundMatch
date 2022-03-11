@@ -6,8 +6,8 @@ from typing import Union
 
 @dataclass(frozen=True)
 class HistrogramBin:
-    start: Union[float, int] 
-    end: Union[float, int] 
+    start: Union[float, int]
+    end: Union[float, int]
     freq: int
     nfreq: float
 
@@ -45,7 +45,7 @@ class EmpiricalDistribution:
 
     def _refresh_summary(self) -> None:
         if len(self.content) > 0:
-            self._min = min(self._content) 
+            self._min = min(self._content)
             self._max = max(self._content)
             self._median = median(self._content)
             self._mean = mean(self._content)
@@ -54,7 +54,7 @@ class EmpiricalDistribution:
     def bins(self, n: int) -> list[HistrogramBin]:
         bins = []
         interval_size = (self.max - self.min) / n
-        
+
         start = self.min
         end = interval_size
         freq = 0
@@ -96,7 +96,7 @@ class EmpiricalDistribution:
     @property
     def mean(self) -> Union[float, int]:
         return self._mean
-    
+
     @property
     def std(self) -> Union[float, int]:
         return self._std

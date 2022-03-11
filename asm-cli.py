@@ -1,7 +1,7 @@
-from typing import Optional
-from glob import glob
 import inspect
 import json
+from glob import glob
+from typing import Optional
 
 import typer
 from scipy.io import wavfile
@@ -10,11 +10,11 @@ from tqdm import tqdm
 from src.config.base import REGISTRY
 from src.config.registry_sections import RegistrySectionsEnum, RegistrySectionsMap
 from src.database.factory import DBFactory
-from src.midi.generation import generate_midi
+from src.daw.audio_model import AudioBridge, AudioBridgeTable  # NOQA: F401
 from src.daw.factory import SynthHostFactory
 from src.daw.render_model import RenderParams, RenderParamsTable
-from src.daw.audio_model import AudioBridge, AudioBridgeTable
-from src.daw.synth_model import SynthParams, SynthParamsTable
+from src.daw.synth_model import SynthParams, SynthParamsTable  # NOQA: F401
+from src.midi.generation import generate_midi
 
 app = typer.Typer()
 
@@ -27,7 +27,7 @@ def register() -> None:
     typer.echo(f"Availble sections: {[e.value for e in RegistrySectionsEnum]}")
 
     sections = dict()
-    
+
     while (entry := typer.prompt("Entry (leave blank to continue)", default="")) != "":
         entry = entry.split(" ")
         if len(entry) == 4:
@@ -56,7 +56,7 @@ def register() -> None:
     for k, v in sections.items():
         sectionModel = RegistrySectionsMap[k](**v)
         REGISTRY.__setattr__(k, sectionModel)
-    
+
     REGISTRY.commit()
 
 
@@ -94,7 +94,8 @@ def setup_relational_models(
     sh_factory_kwargs = dict(synth_path=synth_path)
     sh_factory_kwargs.update(
         {
-            k: v for k, v in dict(render_params).items()
+            k: v
+            for k, v in dict(render_params).items()
             if k in inspect.signature(SynthHostFactory).parameters
         }
     )
@@ -104,7 +105,9 @@ def setup_relational_models(
 
     synth_host = sh_factory()
     definition_path = synth_host.create_parameter_table()
-    typer.echo(f"Created model and table definition for {synth_path} at {definition_path}")
+    typer.echo(
+        f"Created model and table definition for {synth_path} at {definition_path}"
+    )
 
     db = db_factory()
     db.drop_tables()
@@ -140,7 +143,9 @@ def generate_param_tuples(
         for i in range(patches_per_midi):
             synth_host.set_random_patch()
             audio = synth_host.render(midi_file_path, render_params)
-            audio_file_path = midi_file_path.replace(".mid", f"_{i}.wav").replace(midi_path, audio_path)
+            audio_file_path = midi_file_path.replace(".mid", f"_{i}.wav").replace(
+                midi_path, audio_path
+            )
 
             wavfile.write(
                 audio_file_path,
@@ -153,7 +158,7 @@ def generate_param_tuples(
                 audio_path=audio_file_path,
                 midi_path=midi_file_path,
                 render_params=render_params.id,
-                synth_params=synth_params.id
+                synth_params=synth_params.id,
             )
             db.add([synth_params])
             db.add([audio_bridge])

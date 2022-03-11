@@ -1,17 +1,17 @@
-from typing import Optional
 from enum import Enum, unique
+from typing import Optional
 
 from pydantic import BaseModel
 
 from src.flow_synthesizer.enums import (
     AEBaseModelEnum,
-    EDLayerEnum,
-    ModelEnum,
-    FlowTypeEnum,
-    RegressorEnum,
-    LossEnum,
     DisentanglingModelEnum,
-    SchedulerModeEnum
+    EDLayerEnum,
+    FlowTypeEnum,
+    LossEnum,
+    ModelEnum,
+    RegressorEnum,
+    SchedulerModeEnum,
 )
 
 
@@ -88,5 +88,5 @@ RegistrySectionsMap = dict(
     SYNTH=SynthSection,
     DATASET=DatasetSection,
     FLOWSYNTH=FlowSynthSection,
-    TRAINMETA=TrainMetadataSection
+    TRAINMETA=TrainMetadataSection,
 )

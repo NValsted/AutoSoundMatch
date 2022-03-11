@@ -2,12 +2,12 @@ import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Union
 
-from dawdreamer import RenderEngine, PluginProcessor
-from scipy.stats import uniform
 import numpy as np
+from dawdreamer import PluginProcessor, RenderEngine
+from scipy.stats import uniform
 
 from src.daw.render_model import RenderParams
-from src.utils.code_generation import sanitize_attribute, get_code_gen_header
+from src.utils.code_generation import get_code_gen_header, sanitize_attribute
 
 if TYPE_CHECKING:
     from src.daw.synth_model import SynthParams, SynthParamsTable
@@ -17,14 +17,17 @@ if TYPE_CHECKING:
 class SynthHost:
     engine: RenderEngine
     synth: PluginProcessor
-    _synth_model_path: str = f"{os.path.dirname(os.path.realpath(__file__))}/synth_model.py"
+    _synth_model_path: str = (
+        f"{os.path.dirname(os.path.realpath(__file__))}/synth_model.py"
+    )
 
     def create_parameter_table(self) -> str:
         sorted_parameters = sorted(
             self.synth.get_plugin_parameters_description(), key=lambda x: x["index"]
         )
         fields = [
-            f'{sanitize_attribute(param["name"])}: float = Field(alias="{param["index"]}")'
+            f'{sanitize_attribute(param["name"])}: float ='
+            f' Field(alias="{param["index"]}")'
             for param in sorted_parameters
         ]
 
@@ -43,18 +46,22 @@ class SynthHost:
             f.write("\n\t".join(fields) + "\n\n")
             f.write("\tclass Config:\n")
             f.write("\t\tvalidate_all = True\n\n")
-            f.write("\t_auto_uuid = hash_field_to_uuid(\"id\")\n\n\n")
+            f.write('\t_auto_uuid = hash_field_to_uuid("id")\n\n\n')
             f.write("class SynthParamsTable(SynthParams, table=True):\n\t")
-            f.write("__tablename__ = \"SynthParams\"\n\t")
+            f.write('__tablename__ = "SynthParams"\n\t')
             f.write(
-                "__table_args__ = "
-                "(UniqueConstraint(\n\t\t"+ ",\n\t\t".join(str_field_names) + "\n\t),)\n"
+                "__table_args__ = (UniqueConstraint(\n\t\t"
+                + ",\n\t\t".join(str_field_names)
+                + "\n\t),)\n"
             )
 
         return self._synth_model_path
 
-    def get_patch_as_model(self, table: bool = False) -> Union["SynthParams", "SynthParamsTable"]:
+    def get_patch_as_model(
+        self, table: bool = False
+    ) -> Union["SynthParams", "SynthParamsTable"]:
         from src.daw.synth_model import SynthParams, SynthParamsTable
+
         attributes = {
             str(param["index"]): self.synth.get_parameter(param["index"])
             for param in self.synth.get_plugin_parameters_description()
@@ -79,6 +86,6 @@ class SynthHost:
         """
         load the midi file and and an audio file.
         """
-        self.synth.load_midi(midi_path)        
+        self.synth.load_midi(midi_path)
         self.engine.render(render_params.duration)
         return self.engine.get_audio()

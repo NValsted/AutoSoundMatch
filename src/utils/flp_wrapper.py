@@ -1,7 +1,7 @@
-from io import BufferedReader, FileIO, BytesIO
-from dataclasses import dataclass, InitVar, field
-from struct import unpack
+from dataclasses import InitVar, dataclass, field
 from enum import Enum
+from io import BufferedReader, BytesIO, FileIO
+from struct import unpack
 
 
 class ChunkType(str, Enum):
@@ -41,7 +41,7 @@ def get_event_size(stream):
 class Event:
     type: MIDIEvent
     content: bytes
-    
+
     def __init__(self, stream: BufferedReader):
         self.type = (int.from_bytes(stream.read(1), byteorder="little") & 0xF0) >> 4
 
@@ -53,14 +53,14 @@ class Event:
         ]
         size = size_map[self.type >> 6](stream)
         self.content = stream.read(size)
-        
+
 
 @dataclass
 class Header:
     format: int
     channel_count: int
     beat_division: int
-    
+
     @classmethod
     def from_bytes(cls, content: bytes) -> "Header":
         header = unpack("<HHH", content)
@@ -74,22 +74,23 @@ class Events:
     @classmethod
     def from_bytes(cls, content: bytes) -> "Events":
         events = list()
-        
+
         with BufferedReader(BytesIO(content)) as stream:
-            stream_size = stream.seek(0,2)
-            stream.seek(0,0)
+            stream_size = stream.seek(0, 2)
+            stream.seek(0, 0)
             while stream.tell() < stream_size:
                 event = Event(stream)
                 events.append(event)
-        
+
         return cls(events=events)
 
 
 @dataclass
 class Project:
     """
-    Minimal python object wrapper for FLP file format. 
+    Minimal python object wrapper for FLP file format.
     """
+
     filepath: InitVar[str]
     header: Header = field(init=False)
     events: Events = field(init=False)

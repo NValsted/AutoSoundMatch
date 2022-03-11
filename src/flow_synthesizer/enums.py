@@ -1,11 +1,20 @@
 from enum import Enum
 from functools import partial
 
-from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.vae.ae import AE, DisentanglingAE, RegressionAE
+from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.basic import (
+    GatedCNN,
+    GatedMLP,
+)
+from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.vae.ae import (
+    AE,
+    DisentanglingAE,
+    RegressionAE,
+)
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.vae.vae import VAE
+from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.vae.vae_flow import (
+    VAEFlow,
+)
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.vae.wae import WAE
-from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.vae.vae_flow import VAEFlow
-from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.basic import GatedCNN, GatedMLP
 
 
 class AEBaseModelEnum(Enum):

@@ -28,6 +28,13 @@ librosa = "^0.9.1"
 six = "^1.16.0"
 matplotlib = "^3.5.1"
 ipython = "^8.1.1"
+black = "^22.1.0"
+flake8 = "^4.0.1"
+isort = "^5.10.1"
+
+[tool.isort]
+skip = [".gitignore"]
+skip_glob = ["src/flow_synthesizer/acids_ircam_flow_synthesizer/*"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

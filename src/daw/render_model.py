@@ -1,7 +1,7 @@
 from typing import Optional
 
-from sqlmodel import SQLModel, Field
 from sqlalchemy import UniqueConstraint
+from sqlmodel import Field, SQLModel
 
 from src.utils.meta import hash_field_to_uuid
 
@@ -15,10 +15,12 @@ class RenderParams(SQLModel):
 
     class Config:
         validate_all = True
-    
+
     _auto_uuid = hash_field_to_uuid("id")
 
 
 class RenderParamsTable(RenderParams, table=True):
     __tablename__ = "RenderParams"
-    __table_args__ = (UniqueConstraint("sample_rate", "buffer_size", "bpm", "duration"),)
+    __table_args__ = (
+        UniqueConstraint("sample_rate", "buffer_size", "bpm", "duration"),
+    )

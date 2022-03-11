@@ -1,9 +1,9 @@
-from re import sub
 from datetime import datetime
+from re import sub
 
 CODE_GEN_HEADER = (
-f"# THIS FILE WAS AUTOMATICALLY GENERATED AT {datetime.now().isoformat()}\n"
-"#####################################################################\n\n"
+    f"# THIS FILE WAS AUTOMATICALLY GENERATED AT {datetime.now().isoformat()}\n"
+    "#####################################################################\n\n"
 )
 
 
@@ -17,15 +17,15 @@ def sanitize_attribute(attribute: str) -> str:
     """
     char_map = {
         " ": "_",
-        "-" : "_",
-        r"\." : "_dot_",
-        "," : "_comma_",
-        r"\(" : "_leftP_",
-        r"\)" : "_rightP_",
-        "<" : "_lt_",
-        ">" : "_gt_",
-        "/" : "_slash_",
-        r"\b\d" : "_num_",
+        "-": "_",
+        r"\.": "_dot_",
+        ",": "_comma_",
+        r"\(": "_leftP_",
+        r"\)": "_rightP_",
+        "<": "_lt_",
+        ">": "_gt_",
+        "/": "_slash_",
+        r"\b\d": "_num_",
     }
 
     for char, replacement in char_map.items():

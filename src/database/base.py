@@ -1,10 +1,10 @@
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Optional, TypeVar
-from contextlib import contextmanager
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql.schema import Table
-from sqlmodel import SQLModel, Session
+from sqlmodel import Session, SQLModel
 
 ModelType = TypeVar("ModelType", bound=SQLModel)
 

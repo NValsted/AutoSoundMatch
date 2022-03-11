@@ -1,22 +1,19 @@
 from typing import Optional
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 from src.config.base import REGISTRY
 from src.config.registry_sections import TrainMetadataSection
-from src.flow_synthesizer.factory import ModelFactory
-from src.flow_synthesizer.enums import (
+from src.flow_synthesizer.base import ModelWrapper
+from src.flow_synthesizer.enums import (  # DisentanglingModelEnum,
     AEBaseModelEnum,
     EDLayerEnum,
-    ModelEnum,
     FlowTypeEnum,
-    RegressorEnum,
-    # DisentanglingModelEnum,
     LossEnum,
+    ModelEnum,
+    RegressorEnum,
 )
-from src.flow_synthesizer.base import ModelWrapper
-from src.database.dataset import PolyDataset
-from src.database.factory import DBFactory
+from src.flow_synthesizer.factory import ModelFactory
 
 
 def prepare_registry(dataset: Optional[Dataset] = None) -> None:

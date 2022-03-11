@@ -1,38 +1,48 @@
 import inspect
-from typing import Callable, Optional, Union
 from dataclasses import dataclass
 from functools import reduce
+from typing import Callable, Optional, Union
 
 from torch import nn
 
-from src.utils.temporary_context import temporary_attrs
-from src.utils.meta import AttributeWrapper
 from src.config.base import REGISTRY
 from src.config.registry_sections import DatasetSection, FlowSynthSection
-from src.flow_synthesizer.enums import (
-    AEBaseModelEnum,
-    EDLayerEnum,
-    ModelEnum,
-    FlowTypeEnum,
-    RegressorEnum,
-    LossEnum,
-    DisentanglingModelEnum
-)
-from src.flow_synthesizer.base import ModelWrapper
-from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.loss import multinomial_loss, multinomial_mse_loss
-from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.flows.flow import NormalizingFlow
-from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.disentangling import DisentanglingFlow
-from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.regression import BayesianRegressor, FlowPredictor
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.basic import (
+    DecodeCNN,
+    DecodeMLP,
+    GatedCNN,
+    GatedMLP,
+    construct_disentangle,
     construct_encoder_decoder,
     construct_flow,
     construct_regressor,
-    construct_disentangle,
-    GatedMLP,
-    GatedCNN,
-    DecodeMLP,
-    DecodeCNN,
 )
+from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.disentangling import (  # NOQA: E501
+    DisentanglingFlow,
+)
+from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.flows.flow import (
+    NormalizingFlow,
+)
+from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.loss import (
+    multinomial_loss,
+    multinomial_mse_loss,
+)
+from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.regression import (
+    BayesianRegressor,
+    FlowPredictor,
+)
+from src.flow_synthesizer.base import ModelWrapper
+from src.flow_synthesizer.enums import (
+    AEBaseModelEnum,
+    DisentanglingModelEnum,
+    EDLayerEnum,
+    FlowTypeEnum,
+    LossEnum,
+    ModelEnum,
+    RegressorEnum,
+)
+from src.utils.meta import AttributeWrapper
+from src.utils.temporary_context import temporary_attrs
 
 
 @dataclass
@@ -144,7 +154,9 @@ class ModelFactory:
             ),
         )
 
-    def _encoder_decoder(self) -> tuple[Union[GatedMLP, GatedCNN], Union[DecodeMLP, DecodeCNN]]:
+    def _encoder_decoder(
+        self,
+    ) -> tuple[Union[GatedMLP, GatedCNN], Union[DecodeMLP, DecodeCNN]]:
         return construct_encoder_decoder(
             in_size=self.in_dim,
             enc_size=self.encoding_dim,
@@ -185,7 +197,9 @@ class ModelFactory:
             model=self.regressor.value,
             hidden_dims=self.regressor_hidden_dim,
             n_layers=self.regressor_layers,
-            flow_type=self.regressor_flow_type.value if self.regressor_flow_type else None,
+            flow_type=self.regressor_flow_type.value
+            if self.regressor_flow_type
+            else None,
         )
 
     def _reconstruction_loss(self) -> Callable:
@@ -210,7 +224,7 @@ class ModelFactory:
             in_dims=self.latent_dim,
             model=self.disentangling_model.value,
             n_layers=self.disentangling_layers,
-            flow_type=self.regressor_flow_type.value
+            flow_type=self.regressor_flow_type.value,
         )
 
     def register(self, commit: bool = False) -> None:

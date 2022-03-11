@@ -2,10 +2,10 @@ from dataclasses import dataclass
 
 from dawdreamer import RenderEngine
 
-from src.daw.base import SynthHost
-from src.utils.temporary_context import temporary_attrs
 from src.config.base import REGISTRY
 from src.config.registry_sections import SynthSection
+from src.daw.base import SynthHost
+from src.utils.temporary_context import temporary_attrs
 
 
 @dataclass
