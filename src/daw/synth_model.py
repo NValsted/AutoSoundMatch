@@ -1,4 +1,4 @@
-# THIS FILE WAS AUTOMATICALLY GENERATED AT 2022-02-01T22:18:41.894374
+# THIS FILE WAS AUTOMATICALLY GENERATED AT 2022-03-11T19:20:37.857171
 #####################################################################
 
 from typing import Optional
@@ -6,9 +6,11 @@ from typing import Optional
 from sqlmodel import SQLModel, Field
 from sqlalchemy import UniqueConstraint
 
+from src.utils.meta import hash_field_to_uuid
+
 
 class SynthParams(SQLModel):
-	id: Optional[int] = Field(primary_key=True, default=None)
+	id: Optional[str] = Field(primary_key=True, default=None)
 	MasterVol: float = Field(alias="0")
 	A_Vol: float = Field(alias="1")
 	A_Pan: float = Field(alias="2")
@@ -282,6 +284,12 @@ class SynthParams(SQLModel):
 	CompMB_L: float = Field(alias="270")
 	CompMB_M: float = Field(alias="271")
 	CompMB_H: float = Field(alias="272")
+
+	class Config:
+		validate_all = True
+
+	_auto_uuid = hash_field_to_uuid("id")
+
 
 class SynthParamsTable(SynthParams, table=True):
 	__tablename__ = "SynthParams"

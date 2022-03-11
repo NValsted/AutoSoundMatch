@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql.schema import Table
-from sqlmodel import create_engine, SQLModel, Session
+from sqlmodel import SQLModel, Session
 
 ModelType = TypeVar("ModelType", bound=SQLModel)
 
@@ -14,8 +14,8 @@ class Database:
     engine: Engine
 
     @contextmanager
-    def session():
-        with Session(create_engine()) as session:
+    def session(self):
+        with Session(bind=self.engine, future=True) as session:
             yield session
 
     def create_tables(self, tables: Optional[list[Table]] = None) -> None:

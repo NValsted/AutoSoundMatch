@@ -46,7 +46,7 @@ def generate_midi(target_dir: str, number_of_files: int = 50):
         truncnorm(0, 2048, loc=1024, scale=512),
         randint(low=0, high=2048)
     ]
-    number_of_notes = truncnorm(4, 64, loc=8, scale=8)
+    number_of_notes = truncnorm(2, 16, loc=4, scale=8)
     quantization_intervals = [32, 64, 128, 256]
 
     for i in tqdm(range(number_of_files)):

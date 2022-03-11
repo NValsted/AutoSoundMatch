@@ -10,9 +10,11 @@ from tqdm import tqdm
 from src.config.base import REGISTRY
 from src.config.registry_sections import RegistrySectionsEnum, RegistrySectionsMap
 from src.database.factory import DBFactory
-from src.daw.factory import SynthHostFactory
-from src.daw.render_model import RenderParams
 from src.midi.generation import generate_midi
+from src.daw.factory import SynthHostFactory
+from src.daw.render_model import RenderParams, RenderParamsTable
+from src.daw.audio_model import AudioBridge, AudioBridgeTable
+from src.daw.synth_model import SynthParams, SynthParamsTable
 
 app = typer.Typer()
 
@@ -70,7 +72,7 @@ def inspect_registry():
 @app.command()
 def reset():
     """
-    Reset the registry to default values and remove generated data.
+    Reset the registry to default values, drop tables, and remove generated data.
     """
     raise NotImplementedError
 
@@ -104,10 +106,8 @@ def setup_relational_models(
     definition_path = synth_host.create_parameter_table()
     typer.echo(f"Created model and table definition for {synth_path} at {definition_path}")
 
-    from src.daw.render_model import RenderParamsTable
-    from src.daw.synth_model import SynthParamsTable
-    from src.daw.audio_model import AudioBridgeTable
     db = db_factory()
+    db.drop_tables()
     db.create_tables()
 
     db_factory.register(commit=True)
@@ -115,17 +115,15 @@ def setup_relational_models(
 
 
 @app.command()
-def generate_param_triples(
+def generate_param_tuples(
     midi_path: str = typer.Option(...),
     audio_path: str = typer.Option(...),
-    patches_per_midi: int = typer.Option(10),
+    patches_per_midi: int = typer.Option(5),
 ) -> None:
     """
-    Generate triples of audio files with corresponding midi files and
-    parameters from a VST instrument.
+    Generate tuples of audio files with corresponding midi files, render
+    parameters and parameters from a VST instrument.
     """
-
-    render_params = RenderParams()
 
     sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
     db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
@@ -133,17 +131,32 @@ def generate_param_triples(
     synth_host = sh_factory()
     db = db_factory()
 
+    render_params = RenderParams()
+    db.add([RenderParamsTable(**render_params.dict())])
+
     generate_midi(midi_path)
-    for file in tqdm(glob(f"{midi_path}/.generated/*.mid")):
-        file = file.replace("\\", "/")
+    for midi_file_path in tqdm(glob(f"{midi_path}/.generated/*.mid")):
+        midi_file_path = midi_file_path.replace("\\", "/")
         for i in range(patches_per_midi):
             synth_host.set_random_patch()
-            audio = synth_host.render(file, render_params)
+            audio = synth_host.render(midi_file_path, render_params)
+            audio_file_path = midi_file_path.replace(".mid", f"_{i}.wav").replace(midi_path, audio_path)
+
             wavfile.write(
-                file.replace(".mid", f"_{i}.wav").replace(midi_path, audio_path),
+                audio_file_path,
                 render_params.sample_rate,
                 audio.transpose(),
             )
+
+            synth_params = synth_host.get_patch_as_model(table=True)
+            audio_bridge = AudioBridgeTable(
+                audio_path=audio_file_path,
+                midi_path=midi_file_path,
+                render_params=render_params.id,
+                synth_params=synth_params.id
+            )
+            db.add([synth_params])
+            db.add([audio_bridge])
 
 
 if __name__ == "__main__":

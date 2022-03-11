@@ -3,13 +3,20 @@ from typing import Optional
 from sqlmodel import SQLModel, Field
 from sqlalchemy import UniqueConstraint
 
+from src.utils.meta import hash_field_to_uuid
+
 
 class RenderParams(SQLModel):
-    id: Optional[int] = Field(primary_key=True, default=None)
-    sample_rate: int = Field(index=False, default=44100)
+    id: Optional[str] = Field(primary_key=True, default=None)
+    sample_rate: int = Field(index=False, default=22050)
     buffer_size: int = Field(index=False, default=128)
     bpm: int = Field(index=False, default=128)
-    duration: float = Field(index=False, default=2.0)
+    duration: float = Field(index=False, default=4.0)
+
+    class Config:
+        validate_all = True
+    
+    _auto_uuid = hash_field_to_uuid("id")
 
 
 class RenderParamsTable(RenderParams, table=True):

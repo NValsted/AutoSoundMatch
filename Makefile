@@ -22,17 +22,17 @@ build-vst:
 prepare-data:
 	mkdir -p ${midi_dir} ${audio_dir}
 	@echo "Setting up local database and generating data"
-	pyflow asm-cli.py setup-relational-models \
+	poetry run python asm-cli.py setup-relational-models \
 		--synth-path "./data/vst/Serum_x64.dll" \
 		--engine-url "sqlite:///data/local.db"
-	pyflow asm-cli.py generate-param-triples \
+	poetry run python asm-cli.py generate-param-tuples \
 		--midi-path ${midi_dir} \
 		--audio-path ${audio_dir}
 
 reset:
 	@echo "Resetting project state"
-	pyflow asm-cli.py reset
+	poetry run python asm-cli.py reset
 
 inspect:
 	@echo "Inspecting project state"
-	pyflow asm-cli.py inspect-registry
+	poetry run python asm-cli.py inspect-registry

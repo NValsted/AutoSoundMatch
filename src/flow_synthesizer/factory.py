@@ -9,8 +9,7 @@ from src.utils.temporary_context import temporary_attrs
 from src.utils.meta import AttributeWrapper
 from src.config.base import REGISTRY
 from src.config.registry_sections import DatasetSection, FlowSynthSection
-from src.flow_synthesizer.base import (
-    ModelWrapper,
+from src.flow_synthesizer.enums import (
     AEBaseModelEnum,
     EDLayerEnum,
     ModelEnum,
@@ -19,6 +18,7 @@ from src.flow_synthesizer.base import (
     LossEnum,
     DisentanglingModelEnum
 )
+from src.flow_synthesizer.base import ModelWrapper
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.loss import multinomial_loss, multinomial_mse_loss
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.flows.flow import NormalizingFlow
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.disentangling import DisentanglingFlow
@@ -46,17 +46,18 @@ class ModelFactory:
     ae_base: AEBaseModelEnum
     ed_layer: EDLayerEnum
     model: ModelEnum
-    flow_type: Optional[FlowTypeEnum]
-    flow_length: Optional[int]
+    n_layers: int
     kernel: int
     dilation: int
-    regressor: RegressorEnum
-    regressor_flow_type: Optional[FlowTypeEnum]
-    regressor_hidden_dim: int
-    regressor_layers: int
-    reconstruction_loss: LossEnum
-    disentangling_model: Optional[DisentanglingModelEnum]
-    disentangling_layers: int
+    flow_type: Optional[FlowTypeEnum] = None  # TODO: Group parameters
+    flow_length: Optional[int] = None
+    regressor: Optional[RegressorEnum] = None
+    regressor_flow_type: Optional[FlowTypeEnum] = None
+    regressor_hidden_dim: Optional[int] = None
+    regressor_layers: Optional[int] = None
+    reconstruction_loss: Optional[LossEnum] = None
+    disentangling_model: Optional[DisentanglingModelEnum] = None
+    disentangling_layers: Optional[int] = None
     semantic_dim: int = -1
 
     def __call__(self, *args, **kwargs) -> ModelWrapper:
@@ -65,7 +66,7 @@ class ModelFactory:
                 model = tmp._MLP()
                 return ModelWrapper(model=model)
 
-            elif tmp.model == (ModelEnum.CNN, ModelEnum.ResCNN, ModelEnum.GatedCNN):
+            elif tmp.model in (ModelEnum.CNN, ModelEnum.ResCNN, ModelEnum.GatedCNN):
                 model = tmp._CNN()
                 return ModelWrapper(model=model)
 
@@ -97,6 +98,7 @@ class ModelFactory:
                         regression_dims=tmp.out_dim,
                         recons_loss=reconstruction_loss,
                         regressor=regressor,
+                        regressor_name=self.regressor.value,
                     )
 
                 else:
@@ -111,6 +113,7 @@ class ModelFactory:
                         regression_dims=tmp.out_dim,
                         recons_loss=reconstruction_loss,
                         regressor=regressor,
+                        regressor_name=self.regressor.value,
                         disentangling=disentangling,
                         semantic_dim=tmp.semantic_dim,
                     )
@@ -172,16 +175,22 @@ class ModelFactory:
     def _regressor(self) -> Union[FlowPredictor, BayesianRegressor, nn.Sequential]:
         if self.regressor_flow_type is None and self.regressor != RegressorEnum.MLP:
             raise ValueError("regressor_flow_type is required with current parameters")
+        if self.regressor is None:
+            raise ValueError("regressor is required with current parameters")
+        if self.regressor_hidden_dim is None:
+            raise ValueError("regressor_hidden_dim is required with current parameters")
         return construct_regressor(
             in_dims=self.latent_dim,
             out_dims=self.out_dim,
-            regressor=self.regressor.value,
+            model=self.regressor.value,
             hidden_dims=self.regressor_hidden_dim,
             n_layers=self.regressor_layers,
             flow_type=self.regressor_flow_type.value if self.regressor_flow_type else None,
         )
 
     def _reconstruction_loss(self) -> Callable:
+        if self.reconstruction_loss is None:
+            raise ValueError("reconstruction_loss is required with current parameters")
         if self.reconstruction_loss == LossEnum.mse:
             return nn.MSELoss(reduction="sum")  # TODO : .to(device)
         elif self.reconstruction_loss == LossEnum.l1:
@@ -195,6 +204,8 @@ class ModelFactory:
     def _disentangling(self) -> DisentanglingFlow:
         if self.disentangling_model is None:
             raise ValueError("disentangling_model is required with current parameters")
+        if self.disentangling_layers is None:
+            raise ValueError("disentangling_layers is required with current parameters")
         return construct_disentangle(
             in_dims=self.latent_dim,
             model=self.disentangling_model.value,

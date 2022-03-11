@@ -3,14 +3,15 @@ from enum import Enum, unique
 
 from pydantic import BaseModel
 
-from src.flow_synthesizer.base import (
+from src.flow_synthesizer.enums import (
     AEBaseModelEnum,
     EDLayerEnum,
     ModelEnum,
     FlowTypeEnum,
     RegressorEnum,
     LossEnum,
-    DisentanglingModelEnum
+    DisentanglingModelEnum,
+    SchedulerModeEnum
 )
 
 
@@ -22,10 +23,10 @@ class DatabaseSection(BaseModel):
 
 class SynthSection(BaseModel):
     synth_path: str
-    sample_rate: int = 44100
+    sample_rate: int = 22050
     buffer_size: int = 128
     bpm: int = 128
-    duration: float = 1.0
+    duration: float = 4.0
 
 
 class DatasetSection(BaseModel):
@@ -41,18 +42,36 @@ class FlowSynthSection(BaseModel):
     ae_base: AEBaseModelEnum
     ed_layer: EDLayerEnum
     model: ModelEnum
-    flow_type: Optional[FlowTypeEnum]
-    flow_length: Optional[int]
+    n_layers: int
     kernel: int
     dilation: int
-    regressor: RegressorEnum
-    regressor_flow_type: Optional[FlowTypeEnum]
-    regressor_hidden_dim: int
-    regressor_layers: int
-    reconstruction_loss: LossEnum
-    disentangling_model: Optional[DisentanglingModelEnum]
-    disentangling_layers: int
+    flow_type: Optional[FlowTypeEnum] = None  # TODO: Group parameters
+    flow_length: Optional[int] = None
+    regressor: Optional[RegressorEnum] = None
+    regressor_flow_type: Optional[FlowTypeEnum] = None
+    regressor_hidden_dim: Optional[int] = None
+    regressor_layers: Optional[int] = None
+    reconstruction_loss: Optional[LossEnum] = None
+    disentangling_model: Optional[DisentanglingModelEnum] = None
+    disentangling_layers: Optional[int] = None
     semantic_dim: int = -1
+
+
+class TrainMetadataSection(BaseModel):
+    epochs: int = 200
+    batch_size: int = 64
+    loss: LossEnum = LossEnum.mse
+    learning_rate: float = 2e-4
+    scheduler_mode: SchedulerModeEnum = SchedulerModeEnum.min
+    scheduler_factor: float = 0.5
+    scheduler_patience: int = 20
+    scheduler_verbose: bool = True
+    scheduler_threshold: float = 1e-7
+    beta_factor: float = 1.0
+    reg_factor: float = 1e3
+    start_regress: int = 1e2
+    warm_regress: int = 1e2
+    warm_latent: int = 50
 
 
 @unique
@@ -61,6 +80,7 @@ class RegistrySectionsEnum(str, Enum):
     SYNTH = "SYNTH"
     DATASET = "DATASET"
     FLOWSYNTH = "FLOWSYNTH"
+    TRAINMETA = "TRAINMETA"
 
 
 RegistrySectionsMap = dict(
@@ -68,4 +88,5 @@ RegistrySectionsMap = dict(
     SYNTH=SynthSection,
     DATASET=DatasetSection,
     FLOWSYNTH=FlowSynthSection,
+    TRAINMETA=TrainMetadataSection
 )

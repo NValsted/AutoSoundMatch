@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Union
 
 from dawdreamer import RenderEngine, PluginProcessor
 from scipy.stats import uniform
@@ -7,6 +8,9 @@ import numpy as np
 
 from src.daw.render_model import RenderParams
 from src.utils.code_generation import sanitize_attribute, get_code_gen_header
+
+if TYPE_CHECKING:
+    from src.daw.synth_model import SynthParams, SynthParamsTable
 
 
 @dataclass
@@ -32,10 +36,14 @@ class SynthHost:
             f.write(get_code_gen_header())
             f.write("from typing import Optional\n\n")
             f.write("from sqlmodel import SQLModel, Field\n")
-            f.write("from sqlalchemy import UniqueConstraint\n\n\n")
+            f.write("from sqlalchemy import UniqueConstraint\n\n")
+            f.write("from src.utils.meta import hash_field_to_uuid\n\n\n")
             f.write("class SynthParams(SQLModel):\n\t")
-            f.write("id: Optional[int] = Field(primary_key=True, default=None)\n\t")
+            f.write("id: Optional[str] = Field(primary_key=True, default=None)\n\t")
             f.write("\n\t".join(fields) + "\n\n")
+            f.write("\tclass Config:\n")
+            f.write("\t\tvalidate_all = True\n\n")
+            f.write("\t_auto_uuid = hash_field_to_uuid(\"id\")\n\n\n")
             f.write("class SynthParamsTable(SynthParams, table=True):\n\t")
             f.write("__tablename__ = \"SynthParams\"\n\t")
             f.write(
@@ -44,6 +52,17 @@ class SynthHost:
             )
 
         return self._synth_model_path
+
+    def get_patch_as_model(self, table: bool = False) -> Union["SynthParams", "SynthParamsTable"]:
+        from src.daw.synth_model import SynthParams, SynthParamsTable
+        attributes = {
+            str(param["index"]): self.synth.get_parameter(param["index"])
+            for param in self.synth.get_plugin_parameters_description()
+        }
+        if table:
+            return SynthParamsTable(**attributes)
+        else:
+            return SynthParams(**attributes)
 
     def set_random_patch(self) -> list[tuple[int, float]]:
         """
