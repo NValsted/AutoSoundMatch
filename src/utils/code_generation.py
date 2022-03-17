@@ -6,6 +6,8 @@ CODE_GEN_HEADER = (
     "#####################################################################\n\n"
 )
 
+INDENT = "    "
+
 
 def get_code_gen_header() -> str:
     return CODE_GEN_HEADER

@@ -7,7 +7,7 @@ from dawdreamer import PluginProcessor, RenderEngine
 from scipy.stats import uniform
 
 from src.daw.render_model import RenderParams
-from src.utils.code_generation import get_code_gen_header, sanitize_attribute
+from src.utils.code_generation import INDENT, get_code_gen_header, sanitize_attribute
 
 if TYPE_CHECKING:
     from src.daw.synth_model import SynthParams, SynthParamsTable
@@ -41,18 +41,21 @@ class SynthHost:
             f.write("from sqlmodel import SQLModel, Field\n")
             f.write("from sqlalchemy import UniqueConstraint\n\n")
             f.write("from src.utils.meta import hash_field_to_uuid\n\n\n")
-            f.write("class SynthParams(SQLModel):\n\t")
-            f.write("id: Optional[str] = Field(primary_key=True, default=None)\n\t")
-            f.write("\n\t".join(fields) + "\n\n")
-            f.write("\tclass Config:\n")
-            f.write("\t\tvalidate_all = True\n\n")
-            f.write('\t_auto_uuid = hash_field_to_uuid("id")\n\n\n')
-            f.write("class SynthParamsTable(SynthParams, table=True):\n\t")
-            f.write('__tablename__ = "SynthParams"\n\t')
+            f.write("class SynthParams(SQLModel):\n")
             f.write(
-                "__table_args__ = (UniqueConstraint(\n\t\t"
-                + ",\n\t\t".join(str_field_names)
-                + "\n\t),)\n"
+                f"{INDENT}id: Optional[str] = Field(primary_key=True,"
+                f" default=None)\n{INDENT}"
+            )
+            f.write(f"\n{INDENT}".join(fields) + "\n\n")
+            f.write(f"{INDENT}class Config:\n")
+            f.write(f"{INDENT*2}validate_all = True\n\n")
+            f.write(f'{INDENT}_auto_uuid = hash_field_to_uuid("id")\n\n\n')
+            f.write(f"class SynthParamsTable(SynthParams, table=True):\n{INDENT}")
+            f.write(f'__tablename__ = "SynthParams"\n{INDENT}')
+            f.write(
+                f"__table_args__ = (UniqueConstraint(\n{INDENT*2}"
+                + f",\n{INDENT*2}".join(str_field_names)
+                + f"\n{INDENT}),)\n"
             )
 
         return self._synth_model_path
@@ -70,6 +73,26 @@ class SynthHost:
             return SynthParamsTable(**attributes)
         else:
             return SynthParams(**attributes)
+
+    def set_patch(self, patch: list[float]) -> None:
+        plugin_parameters = sorted(
+            self.synth.get_plugin_parameters_description(),
+            key=lambda x: x["index"],
+        )
+
+        if len(patch) != len(plugin_parameters):
+            raise ValueError(
+                f"Patch is not valid with {len(patch)=}. Expected"
+                f" {len(plugin_parameters)} parameters."
+            )
+
+        if not all(isinstance(param, float) for param in patch):
+            raise ValueError("Patch must be a list of floats")
+
+        finalized_patch = [
+            (param["index"], patch[i]) for i, param in enumerate(plugin_parameters)
+        ]
+        self.synth.set_patch(finalized_patch)
 
     def set_random_patch(self) -> list[tuple[int, float]]:
         """

@@ -1,9 +1,13 @@
 import inspect
 from dataclasses import dataclass, field
+from os import PathLike
+from typing import BinaryIO, Callable, Optional, Union
+from uuid import UUID, uuid4
 
-from torch import nn
+from torch import load, nn, save
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.config.base import REGISTRY
@@ -12,6 +16,7 @@ from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.loss import (
     multinomial_mse_loss,
 )
 from src.flow_synthesizer.enums import LossEnum, ModelEnum, SchedulerModeEnum
+from src.utils.loss_model import LossTable, TrainValTestEnum
 from src.utils.meta import AttributeWrapper
 
 
@@ -26,6 +31,7 @@ class ModelWrapper:
     beta: float = field(init=False)
     gamma: float = field(init=False)
     delta: float = field(init=False)
+    id: UUID = field(default_factory=uuid4)
 
     def __post_init__(self):
         if self.trainable:
@@ -109,17 +115,24 @@ class ModelWrapper:
             )
         self.delta = 0
 
+    def _determine_loss_kwarg(self, func: Callable) -> str:
+        for kwarg_name in ("loss_params", "loss"):
+            if kwarg_name in inspect.signature(func).parameters:
+                return kwarg_name
+        else:
+            raise ValueError(f"Unable to determine loss keyword argument in {func}")
+
     def train(
         self,
-        train_loader,
-        epochs: int = REGISTRY.TRAINMETA.epochs
-        if REGISTRY.TRAINMETA is not None
-        else 1,
+        train_loader: DataLoader,
+        epochs: int,
+        validation_loader: Optional[DataLoader] = None,
         *args,
         **kwargs,
-    ) -> list[float]:
-
+    ) -> list[LossTable]:
+        # TODO: Use scheduler
         losses = []
+
         for _ in tqdm(range(epochs)):
             self._update_warmup(
                 *args,
@@ -136,20 +149,50 @@ class ModelWrapper:
                     gamma=self.gamma,
                 ),
             )
-
-            for kwarg_name in ("loss_params", "loss"):
-                if kwarg_name in inspect.signature(self.model.train_epoch).parameters:
-                    train_kwargs[kwarg_name] = self.loss
-                    break
-            else:
-                raise ValueError(
-                    "Unable to determine loss keyword argument in"
-                    f" {self.model.train_epoch}"
-                )
+            loss_kwarg = self._determine_loss_kwarg(self.model.train_epoch)
+            train_kwargs[loss_kwarg] = self.loss
 
             loss = self.model.train_epoch(**train_kwargs)
-            losses.append(loss)
+            loss_model = LossTable(
+                model_id=str(self.id),
+                type=str(self.loss),
+                train_val_test=TrainValTestEnum.TRAIN,
+                value=loss.item(),
+            )
+            losses.append(loss_model)
+
+            if validation_loader is not None:
+                validation_loss = self.evaluate(validation_loader)
+                losses.append(validation_loss)
 
             self._accumulated_epochs += 1
 
         return losses
+
+    def evaluate(self, evaluation_loader: DataLoader) -> LossTable:
+        eval_kwargs = dict(
+            loader=evaluation_loader,
+            args=AttributeWrapper(
+                device="cpu",
+            ),
+        )
+        loss_kwarg = self._determine_loss_kwarg(self.model.eval_epoch)
+        eval_kwargs[loss_kwarg] = self.loss
+
+        loss = self.model.eval_epoch(**eval_kwargs)
+        loss_model = LossTable(
+            model_id=str(self.id),
+            type=str(self.loss),
+            train_val_test=TrainValTestEnum.VALIDATION,
+            value=loss.item(),
+        )
+
+        return loss_model
+
+    def save(self, path: Union[str, PathLike, BinaryIO]) -> None:
+        save(self.model, path)
+
+    @classmethod
+    def load(cls, path: Union[str, PathLike, BinaryIO]) -> None:
+        _loaded_model = load(path)
+        return cls(model=_loaded_model)

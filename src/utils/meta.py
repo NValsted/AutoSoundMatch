@@ -24,7 +24,7 @@ class AttributeWrapper:
 def hash_to_uuid(key) -> str:
     try:
         UUID(key)
-        return key
+        return str(key)
     except ValueError:
         return str(uuid5(NAMESPACE_DNS, str(key)))
 

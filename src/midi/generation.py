@@ -7,6 +7,7 @@ from mido import MidiFile
 from scipy.stats import randint, truncnorm
 from tqdm import tqdm
 
+from src.config.base import REGISTRY
 from src.midi.base import ASMMidiNote, ASMMidiTrack
 from src.utils.distributions.base import EmpiricalDistribution
 
@@ -66,7 +67,10 @@ def generate_midi(target_dir: str, number_of_files: int = 50):
 
         file = MidiFile(type=0)
         file.tracks.append(track)
-        file.save(f"{result_dir}/{i}.mid")
+
+        save_path = f"{result_dir}/{i}.mid"
+        file.save(save_path)
+        REGISTRY.add_blob(save_path)
 
 
 def partition_midi(properties: MidiSnippetProperties):

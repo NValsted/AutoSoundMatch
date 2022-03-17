@@ -1,36 +1,65 @@
+from dataclasses import dataclass
 from typing import Optional
 
 from torch.utils.data import Dataset
 
 from src.config.base import REGISTRY
-from src.config.registry_sections import TrainMetadataSection
-from src.flow_synthesizer.base import ModelWrapper
-from src.flow_synthesizer.enums import (  # DisentanglingModelEnum,
-    AEBaseModelEnum,
-    EDLayerEnum,
-    FlowTypeEnum,
-    LossEnum,
-    ModelEnum,
-    RegressorEnum,
+from src.config.registry_sections import (
+    DatasetSection,
+    FlowSynthSection,
+    TrainMetadataSection,
 )
+from src.daw.audio_model import AudioBridgeTable
+from src.flow_synthesizer.base import ModelWrapper
 from src.flow_synthesizer.factory import ModelFactory
 
 
-def prepare_registry(dataset: Optional[Dataset] = None) -> None:
+@dataclass
+class ModelSuite:  # TODO : Ensure each model is only loaded into memory when needed
+    MLP: ModelWrapper
+    CNN: ModelWrapper
+    ResNet: ModelWrapper
+    AE: ModelWrapper
+    VAE: ModelWrapper
+    WAE: ModelWrapper
+    VAE_flow: ModelWrapper
+    Flow_reg: ModelWrapper
+    Flow_dis: ModelWrapper
+
+    def __post_init__(self):
+        # TODO : remember to remove when implementing get_model_suite
+        raise NotImplementedError
+
+
+def prepare_registry(dataset: Optional[Dataset] = None, commit: bool = False) -> None:
     """
-    Prepare the registry for the model training and evaluation.
+    Prepare the registry with default values for the model training and evaluation.
     """
     if dataset is not None:
-        raise NotImplementedError
-    REGISTRY.TRAINMETA = TrainMetadataSection()
+        REGISTRY.DATASET = DatasetSection(
+            in_dim=dataset.in_dim,
+            out_dim=dataset.out_dim,
+        )
+
+    if REGISTRY.TRAINMETA is None:
+        REGISTRY.TRAINMETA = TrainMetadataSection()
+
+    if REGISTRY.FLOWSYNTH is None:
+        REGISTRY.FLOWSYNTH = FlowSynthSection()
+
+    if commit:
+        REGISTRY.commit()
 
 
-def get_flow_reg_model(dataset: Optional[Dataset] = None) -> ModelWrapper:
-    """
-    Get a model with the Flow_reg architecture, which is reported to
-    have the best audio reconstruction performance in Esling, Philippe,
-    et al. (2019).
-    """
+def get_model(
+    hyper_parameters: Optional[FlowSynthSection] = None,
+    dataset: Optional[Dataset] = None,
+) -> ModelWrapper:
+
+    if hyper_parameters is None:
+        if REGISTRY.FLOWSYNTH is None:
+            raise ValueError("REGISTRY.FLOWSYNTH section is not set.")
+        hyper_parameters = REGISTRY.FLOWSYNTH
 
     if dataset is not None:
         in_dim = dataset.in_dim
@@ -44,30 +73,34 @@ def get_flow_reg_model(dataset: Optional[Dataset] = None) -> ModelWrapper:
     model_factory = ModelFactory(
         in_dim=in_dim,
         out_dim=out_dim,
-        encoding_dim=64,
-        latent_dim=8,
-        channels=32,
-        hidden_dim=512,
-        ae_base=AEBaseModelEnum.VAEFlow,
-        ed_layer=EDLayerEnum.gated_mlp,
-        model=ModelEnum.RegressionAE,
-        flow_type=FlowTypeEnum.iaf,
-        flow_length=16,
-        n_layers=4,
-        kernel=5,
-        dilation=3,
-        regressor=RegressorEnum.mlp,
-        regressor_flow_type=FlowTypeEnum.maf,
-        regressor_hidden_dim=256,
-        regressor_layers=3,
-        reconstruction_loss=LossEnum.mse,
-        # disentangling_model=DisentanglingModelEnum.density,
-        # disentangling_layers=8,
-        # semantic_dim=-1,
+        encoding_dim=hyper_parameters.encoding_dim,
+        latent_dim=hyper_parameters.latent_dim,
+        channels=hyper_parameters.channels,
+        hidden_dim=hyper_parameters.hidden_dim,
+        ae_base=hyper_parameters.ae_base,
+        ed_layer=hyper_parameters.ed_layer,
+        model=hyper_parameters.model,
+        flow_type=hyper_parameters.flow_type,
+        flow_length=hyper_parameters.flow_length,
+        n_layers=hyper_parameters.n_layers,
+        kernel=hyper_parameters.kernel,
+        dilation=hyper_parameters.dilation,
+        regressor=hyper_parameters.regressor,
+        regressor_flow_type=hyper_parameters.regressor_flow_type,
+        regressor_hidden_dim=hyper_parameters.regressor_hidden_dim,
+        regressor_layers=hyper_parameters.regressor_layers,
+        reconstruction_loss=hyper_parameters.reconstruction_loss,
+        disentangling_model=hyper_parameters.disentangling_model,
+        disentangling_layers=hyper_parameters.disentangling_layers,
+        semantic_dim=-hyper_parameters.semantic_dim,
     )
     model = model_factory()
     return model
 
 
 def get_model_suite():
+    raise NotImplementedError
+
+
+def evaluate_inference(model: ModelWrapper, audio_bridges: list[AudioBridgeTable]):
     raise NotImplementedError

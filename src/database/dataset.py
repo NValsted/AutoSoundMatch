@@ -19,7 +19,7 @@ class PolyDataset(IterableDataset):
     db: Database
     test_flag: bool = False
     shuffle: bool = True
-    cache_size: int = 256
+    cache_size: int = 4096
     audio_bridges: list[AudioBridgeTable] = field(init=False)
     in_dim: list[int, int] = field(init=False)
     out_dim: int = field(init=False)
@@ -42,8 +42,6 @@ class PolyDataset(IterableDataset):
         sample = self[0]
         self.in_dim = sample[0].shape
         self.out_dim = sample[1].shape[0]
-        if self.shuffle:
-            np.random.shuffle(self.audio_bridges)
 
     def __getitem__(
         self, index: int
@@ -55,6 +53,8 @@ class PolyDataset(IterableDataset):
 
     def __iter__(self):
         self._expected_index = 0
+        if self.shuffle:
+            np.random.shuffle(self.audio_bridges)
         return self
 
     def __next__(self) -> Tuple[torch.Tensor, np.ndarray, np.ndarray, np.ndarray]:

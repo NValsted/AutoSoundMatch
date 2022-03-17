@@ -3,18 +3,26 @@ import json
 from glob import glob
 from typing import Optional
 
+import librosa
 import typer
+from librosa.util import valid_audio
+from librosa.util.exceptions import ParameterError
 from scipy.io import wavfile
+from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
-from src.config.base import REGISTRY
+from src.config.base import REGISTRY, Registry
 from src.config.registry_sections import RegistrySectionsEnum, RegistrySectionsMap
+from src.database.dataset import PolyDataset
 from src.database.factory import DBFactory
 from src.daw.audio_model import AudioBridge, AudioBridgeTable  # NOQA: F401
 from src.daw.factory import SynthHostFactory
 from src.daw.render_model import RenderParams, RenderParamsTable
 from src.daw.synth_model import SynthParams, SynthParamsTable  # NOQA: F401
+from src.flow_synthesizer.api import get_model, prepare_registry
+from src.flow_synthesizer.base import ModelWrapper
 from src.midi.generation import generate_midi
+from src.utils.signal_processing import process_sample
 
 app = typer.Typer()
 
@@ -39,7 +47,7 @@ def register() -> None:
             typer.echo(f"Invalid entry: {entry}")
             continue
 
-        if section not in RegistrySectionsEnum:
+        if section not in RegistrySectionsEnum.__members__:
             typer.echo(f"Invalid section: {section}")
             continue
 
@@ -74,7 +82,16 @@ def reset():
     """
     Reset the registry to default values, drop tables, and remove generated data.
     """
-    raise NotImplementedError
+    global REGISTRY
+
+    if REGISTRY.DATABASE is not None:
+        db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
+        db = db_factory()
+        db.drop_tables()
+
+    REGISTRY.clear_blobs()
+    REGISTRY = Registry()
+    REGISTRY.commit()
 
 
 @app.command()
@@ -147,11 +164,19 @@ def generate_param_tuples(
                 midi_path, audio_path
             )
 
+            try:
+                valid_audio(audio)
+            except ParameterError:
+                typer.echo(f"Skipping invalid audio: {audio_file_path}")
+                synth_host = sh_factory()
+                continue
+
             wavfile.write(
                 audio_file_path,
                 render_params.sample_rate,
                 audio.transpose(),
             )
+            REGISTRY.add_blob(audio_file_path)
 
             synth_params = synth_host.get_patch_as_model(table=True)
             audio_bridge = AudioBridgeTable(
@@ -162,6 +187,92 @@ def generate_param_tuples(
             )
             db.add([synth_params])
             db.add([audio_bridge])
+
+
+@app.command()
+def train_model(
+    model_dir: str = typer.Option(...),
+    validation_split: Optional[float] = typer.Option(0.15),
+) -> None:
+    """
+    Train a model to estimate parameters.
+    """
+    db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
+    db = db_factory()
+    dataset = PolyDataset(db, shuffle=True)
+    prepare_registry(dataset=dataset, commit=True)
+
+    train_kwargs = dict(epochs=REGISTRY.TRAINMETA.epochs)
+
+    if validation_split is not None:
+        train_size = int(len(dataset) * (1 - validation_split))
+        validation_size = len(dataset) - train_size
+
+        train_dataset, validation_dataset = random_split(
+            dataset, [train_size, validation_size]
+        )
+
+        train_loader = DataLoader(
+            train_dataset, batch_size=REGISTRY.TRAINMETA.batch_size
+        )
+        validation_loader = DataLoader(
+            validation_dataset, batch_size=REGISTRY.TRAINMETA.batch_size
+        )
+
+        train_kwargs["train_loader"] = train_loader
+        train_kwargs["validation_loader"] = validation_loader
+
+    else:
+        train_loader = DataLoader(dataset, batch_size=REGISTRY.TRAINMETA.batch_size)
+        train_kwargs["train_loader"] = train_loader
+
+    model = get_model()
+    losses = model.train(**train_kwargs)
+
+    save_path = f"{model_dir}/model-{model.id}.pkl"
+    typer.echo(f"Saving model to {save_path}")
+    model.save(save_path)
+    REGISTRY.add_blob(save_path)
+    REGISTRY.FLOWSYNTH.latest_model_path = save_path
+    REGISTRY.commit()
+
+    db.add(losses)
+
+
+@app.command()
+def test_model(model_path: Optional[str] = typer.Option(None)):
+    """
+    Test the trained model.
+    """
+    model = ModelWrapper.load(
+        REGISTRY.FLOWSYNTH.latest_model_path if model_path is None else model_path
+    )
+
+    db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
+    db = db_factory()
+    test_dataset = PolyDataset(db, test_flag=True)
+    test_loader = DataLoader(test_dataset, batch_size=64)
+
+    model, test_loader
+
+    raise NotImplementedError
+
+
+@app.command()
+def estimate_synth_params(
+    model_path: Optional[str] = typer.Option(None), audio_path: str = typer.Option(...)
+):
+    """
+    Estimate synth parameters from an audio signal.
+    """
+    model = ModelWrapper.load(
+        REGISTRY.FLOWSYNTH.latest_model_path if model_path is None else model_path
+    )
+
+    signal, sample_rate = librosa.load(audio_path)
+    processed = process_sample(signal, sample_rate)
+    model, processed
+    raise NotImplementedError
 
 
 if __name__ == "__main__":
