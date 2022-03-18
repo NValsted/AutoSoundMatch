@@ -1,17 +1,19 @@
-midi_dir := data/midi
-audio_dir := data/audio
-model_dir := data/model
-docker_image := nvalsted/autosoundmatch:latest
+MIDI_DIR ?= data/midi
+AUDIO_DIR ?= data/audio
+MODEL_DIR ?= data/model
+DOCKER_IMAGE ?= nvalsted/autosoundmatch:latest
+
+SYNTH_PATH ?= ./data/vst/MikaMicro64.dll
 
 build-image:
 ifeq ($(OS),Windows_NT)
-	docker build --no-cache . -t ${docker_image}
+	docker build --no-cache . -t ${DOCKER_IMAGE}
 else
-	sudo docker build --no-cache . -t ${docker_image}
+	sudo docker build --no-cache . -t ${DOCKER_IMAGE}
 endif
 
 run-image-interactive:
-	docker run --rm -it ${docker_image}
+	docker run --rm -it ${DOCKER_IMAGE}
 
 fetch-resources:
 	@echo "NOT YET IMPLEMENTED"
@@ -21,22 +23,25 @@ build-vst:
 	@echo "NOT YET IMPLEMENTED"
 
 prepare-data:
-	mkdir -p ${midi_dir} ${audio_dir} ${model_dir}
+	mkdir -p ${MIDI_DIR} ${AUDIO_DIR} ${MODEL_DIR}
 	@echo "Setting up local database and generating data"
 	poetry run python asm-cli.py setup-relational-models \
-		--synth-path "./data/vst/MikaMicro64.dll" \
+		--synth-path ${SYNTH_PATH} \
 		--engine-url "sqlite:///data/local.db"
 	poetry run python asm-cli.py generate-param-tuples \
-		--midi-path ${midi_dir} \
-		--audio-path ${audio_dir}
+		--midi-path ${MIDI_DIR} \
+		--audio-path ${AUDIO_DIR}
 
 model:
 	@echo "Training main model"
 	poetry run python asm-cli.py train-model \
-		--model-dir ${model_dir}
+		--model-dir ${MODEL_DIR}
 
 model-suite:
 	@echo "NOT YET IMPLEMENTED"
+
+evaluate:
+	poetry run python asm-cli.py test-model
 
 reset:
 	@echo "Resetting project state"
