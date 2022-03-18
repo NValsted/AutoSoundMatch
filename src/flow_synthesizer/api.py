@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from torch.utils.data import Dataset
+import torch
+from scipy.io import wavfile
 
 from src.config.base import REGISTRY
 from src.config.registry_sections import (
@@ -9,9 +10,14 @@ from src.config.registry_sections import (
     FlowSynthSection,
     TrainMetadataSection,
 )
+from src.database.dataset import FlowSynthDataset, load_formatted_audio
 from src.daw.audio_model import AudioBridgeTable
+from src.daw.factory import SynthHostFactory
+from src.daw.render_model import RenderParams
 from src.flow_synthesizer.base import ModelWrapper
 from src.flow_synthesizer.factory import ModelFactory
+from src.utils.loss_model import LossTable, TrainValTestEnum
+from src.utils.signal_processing import mse, spectral_convergence
 
 
 @dataclass
@@ -31,7 +37,9 @@ class ModelSuite:  # TODO : Ensure each model is only loaded into memory when ne
         raise NotImplementedError
 
 
-def prepare_registry(dataset: Optional[Dataset] = None, commit: bool = False) -> None:
+def prepare_registry(
+    dataset: Optional[FlowSynthDataset] = None, commit: bool = False
+) -> None:
     """
     Prepare the registry with default values for the model training and evaluation.
     """
@@ -53,7 +61,7 @@ def prepare_registry(dataset: Optional[Dataset] = None, commit: bool = False) ->
 
 def get_model(
     hyper_parameters: Optional[FlowSynthSection] = None,
-    dataset: Optional[Dataset] = None,
+    dataset: Optional[FlowSynthDataset] = None,
 ) -> ModelWrapper:
 
     if hyper_parameters is None:
@@ -102,5 +110,44 @@ def get_model_suite():
     raise NotImplementedError
 
 
-def evaluate_inference(model: ModelWrapper, audio_bridges: list[AudioBridgeTable]):
-    raise NotImplementedError
+def evaluate_inference(
+    model: ModelWrapper,
+    audio_bridges: list[AudioBridgeTable],
+    write_audio: bool = True,
+) -> list[LossTable]:
+    # TODO: add possibility to evaluate based on different midi files
+
+    sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
+
+    losses = []
+
+    for bridge in audio_bridges:
+        formatted_signal, target_signal = load_formatted_audio(bridge.audio_path)
+        with torch.no_grad():
+            estimated_params = model(formatted_signal)[0]
+
+        render_params = RenderParams()  # TODO: bridge.render_params
+        synth_host = sh_factory()
+        synth_host.set_patch(estimated_params.tolist())
+        inferred_audio = synth_host.render(bridge.midi_path, render_params)
+
+        if write_audio:
+            wavfile.write(
+                bridge.audio_path.replace(".wav", "_inferred.wav"),
+                render_params.sample_rate,
+                inferred_audio.transpose(),
+            )
+
+        for loss_callable in (spectral_convergence, mse):
+            loss = loss_callable(inferred_audio, target_signal)
+
+            loss_model = LossTable(
+                model_id=str(model.id),
+                type=str(loss_callable.__name__),
+                train_val_test=TrainValTestEnum.TEST,
+                value=loss,
+            )
+
+            losses.append(loss_model)
+
+    return losses

@@ -5,6 +5,7 @@ import librosa
 import numpy as np
 import torch
 from sqlmodel import select
+from sqlmodel.sql.expression import SelectOfScalar
 from torch.utils.data import IterableDataset
 
 from src.database.base import Database
@@ -13,9 +14,11 @@ from src.daw.synth_model import SynthParamsTable
 from src.utils.signal_processing import process_sample
 from src.utils.temporary_context import temporary_attrs
 
+SelectOfScalar.inherit_cache = True
+
 
 @dataclass
-class PolyDataset(IterableDataset):
+class FlowSynthDataset(IterableDataset):
     db: Database
     test_flag: bool = False
     shuffle: bool = True
@@ -35,7 +38,7 @@ class PolyDataset(IterableDataset):
 
         if len(self.audio_bridges) == 0:
             raise ValueError(
-                f"No audio bridges found in database {self.db.engine} with"
+                f"No audio bridges found in database {self.db.engine.url} with"
                 f" {self.test_flag=}"
             )
 
@@ -114,3 +117,16 @@ class PolyDataset(IterableDataset):
 
     def __len__(self):
         return len(self.audio_bridges)
+
+
+def load_formatted_audio(audio_path: str) -> Tuple[torch.Tensor, np.ndarray]:
+    """
+    Loads an audio file, and prepares it to be used in inference step.
+    """
+
+    signal, sample_rate = librosa.load(audio_path)
+    processed = process_sample(signal, sample_rate)
+
+    as_tensor = torch.from_numpy(processed).float()
+    formatted = as_tensor.reshape(1, *as_tensor.shape)
+    return formatted, signal

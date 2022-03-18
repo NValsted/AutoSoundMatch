@@ -1,9 +1,11 @@
 import inspect
+import re
 from dataclasses import dataclass, field
 from os import PathLike
 from typing import BinaryIO, Callable, Optional, Union
 from uuid import UUID, uuid4
 
+import torch
 from torch import load, nn, save
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -189,10 +191,21 @@ class ModelWrapper:
 
         return loss_model
 
+    def __call__(self, x: torch.Tensor, *args, **kwargs):
+        return self.model(x)
+
     def save(self, path: Union[str, PathLike, BinaryIO]) -> None:
+        # TODO: save/load ModelWrapper attributes
         save(self.model, path)
 
     @classmethod
     def load(cls, path: Union[str, PathLike, BinaryIO]) -> None:
         _loaded_model = load(path)
-        return cls(model=_loaded_model)
+        wrapped = cls(model=_loaded_model)
+
+        matched_uuid = re.search(
+            r"[\da-f]{8}\b-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-\b[\da-f]{12}", path
+        )  # TODO: save/load ModelWrapper attributes instead
+        wrapped.id = matched_uuid.group(0) if matched_uuid is not None else None
+
+        return wrapped

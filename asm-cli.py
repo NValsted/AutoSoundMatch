@@ -1,9 +1,10 @@
 import inspect
 import json
+import random
 from glob import glob
 from typing import Optional
 
-import librosa
+import torch
 import typer
 from librosa.util import valid_audio
 from librosa.util.exceptions import ParameterError
@@ -13,16 +14,15 @@ from tqdm import tqdm
 
 from src.config.base import REGISTRY, Registry
 from src.config.registry_sections import RegistrySectionsEnum, RegistrySectionsMap
-from src.database.dataset import PolyDataset
+from src.database.dataset import FlowSynthDataset, load_formatted_audio
 from src.database.factory import DBFactory
 from src.daw.audio_model import AudioBridge, AudioBridgeTable  # NOQA: F401
 from src.daw.factory import SynthHostFactory
 from src.daw.render_model import RenderParams, RenderParamsTable
 from src.daw.synth_model import SynthParams, SynthParamsTable  # NOQA: F401
-from src.flow_synthesizer.api import get_model, prepare_registry
+from src.flow_synthesizer.api import evaluate_inference, get_model, prepare_registry
 from src.flow_synthesizer.base import ModelWrapper
 from src.midi.generation import generate_midi
-from src.utils.signal_processing import process_sample
 
 app = typer.Typer()
 
@@ -75,6 +75,7 @@ def inspect_registry():
     """
     for k, v in dict(REGISTRY).items():
         typer.echo(f"{k}: {v}")
+    # TODO : display info about blobs - number of blobs, combined size of blobs, etc.
 
 
 @app.command()
@@ -127,7 +128,6 @@ def setup_relational_models(
     )
 
     db = db_factory()
-    db.drop_tables()
     db.create_tables()
 
     db_factory.register(commit=True)
@@ -184,6 +184,7 @@ def generate_param_tuples(
                 midi_path=midi_file_path,
                 render_params=render_params.id,
                 synth_params=synth_params.id,
+                test_flag=True if random.random() < 0.1 else False,
             )
             db.add([synth_params])
             db.add([audio_bridge])
@@ -199,7 +200,7 @@ def train_model(
     """
     db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
     db = db_factory()
-    dataset = PolyDataset(db, shuffle=True)
+    dataset = FlowSynthDataset(db, shuffle=True)
     prepare_registry(dataset=dataset, commit=True)
 
     train_kwargs = dict(epochs=REGISTRY.TRAINMETA.epochs)
@@ -250,17 +251,17 @@ def test_model(model_path: Optional[str] = typer.Option(None)):
 
     db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
     db = db_factory()
-    test_dataset = PolyDataset(db, test_flag=True)
-    test_loader = DataLoader(test_dataset, batch_size=64)
+    test_dataset = FlowSynthDataset(db, test_flag=True)
 
-    model, test_loader
-
-    raise NotImplementedError
+    losses = evaluate_inference(model, test_dataset.audio_bridges)
+    db.add(losses)
 
 
 @app.command()
 def estimate_synth_params(
-    model_path: Optional[str] = typer.Option(None), audio_path: str = typer.Option(...)
+    model_path: Optional[str] = typer.Option(None),
+    audio_path: str = typer.Option(...),
+    # patch_output: str = typer.Option(...),
 ):
     """
     Estimate synth parameters from an audio signal.
@@ -268,11 +269,17 @@ def estimate_synth_params(
     model = ModelWrapper.load(
         REGISTRY.FLOWSYNTH.latest_model_path if model_path is None else model_path
     )
+    sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
+    synth_host = sh_factory()
 
-    signal, sample_rate = librosa.load(audio_path)
-    processed = process_sample(signal, sample_rate)
-    model, processed
-    raise NotImplementedError
+    formatted_signal, signal = load_formatted_audio(  # TODO: Report confidence
+        audio_path
+    )
+    with torch.no_grad():
+        params = model(formatted_signal)
+
+    synth_host.set_patch(params[0].tolist())
+    print(synth_host.get_patch_as_model())  # TODO : save as .fxp
 
 
 if __name__ == "__main__":
