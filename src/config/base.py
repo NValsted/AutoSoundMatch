@@ -3,6 +3,7 @@ import pickle
 from typing import Any, Optional
 from warnings import warn
 
+import torch
 from pydantic import BaseModel
 
 from src.config.registry_sections import (
@@ -73,3 +74,5 @@ with open(_REGISTRY_CONFIG_FILE, "rb") as f:
     except pickle.UnpicklingError:
         warn("Registry file is corrupted, resetting")
         REGISTRY = Registry()
+
+PYTORCH_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

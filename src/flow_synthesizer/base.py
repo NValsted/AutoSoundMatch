@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from src.config.base import REGISTRY
+from src.config.base import PYTORCH_DEVICE, REGISTRY
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.loss import (
     multinomial_loss,
     multinomial_mse_loss,
@@ -36,6 +36,8 @@ class ModelWrapper:
     id: UUID = field(default_factory=uuid4)
 
     def __post_init__(self):
+        self.model.to(PYTORCH_DEVICE)
+
         if self.trainable:
             if REGISTRY.TRAINMETA is None:
                 raise ValueError(
@@ -76,11 +78,11 @@ class ModelWrapper:
         )
 
         if loss.value == "mse":
-            self.loss = nn.MSELoss(reduction="mean")  # TODO: device
+            self.loss = nn.MSELoss(reduction="mean").to(PYTORCH_DEVICE)
         elif loss.value == "l1":
-            self.loss = nn.SmoothL1Loss(reduction="mean")  # TODO: device
+            self.loss = nn.SmoothL1Loss(reduction="mean").to(PYTORCH_DEVICE)
         elif loss.value == "bce":
-            self.loss = nn.BCELoss(reduction="mean")  # TODO: device
+            self.loss = nn.BCELoss(reduction="mean").to(PYTORCH_DEVICE)
         elif loss.value == "multinomial":
             self.loss = multinomial_loss
         elif loss.value == "multi_mse":
@@ -146,7 +148,7 @@ class ModelWrapper:
                 loader=train_loader,
                 optimizer=self.optimizer,
                 args=AttributeWrapper(
-                    device="cpu",
+                    device=PYTORCH_DEVICE,
                     beta=self.beta,
                     gamma=self.gamma,
                 ),
@@ -175,7 +177,7 @@ class ModelWrapper:
         eval_kwargs = dict(
             loader=evaluation_loader,
             args=AttributeWrapper(
-                device="cpu",
+                device=PYTORCH_DEVICE,
             ),
         )
         loss_kwarg = self._determine_loss_kwarg(self.model.eval_epoch)

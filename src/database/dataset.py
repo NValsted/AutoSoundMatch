@@ -8,6 +8,7 @@ from sqlmodel import select
 from sqlmodel.sql.expression import SelectOfScalar
 from torch.utils.data import IterableDataset
 
+from src.config.base import PYTORCH_DEVICE
 from src.database.base import Database
 from src.daw.audio_model import AudioBridgeTable
 from src.daw.synth_model import SynthParamsTable
@@ -119,7 +120,7 @@ class FlowSynthDataset(IterableDataset):
         return len(self.audio_bridges)
 
 
-def load_formatted_audio(audio_path: str) -> Tuple[torch.Tensor, np.ndarray]:
+def load_formatted_audio(audio_path: str) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Loads an audio file, and prepares it to be used in inference step.
     """
@@ -127,6 +128,10 @@ def load_formatted_audio(audio_path: str) -> Tuple[torch.Tensor, np.ndarray]:
     signal, sample_rate = librosa.load(audio_path)
     processed = process_sample(signal, sample_rate)
 
-    as_tensor = torch.from_numpy(processed).float()
-    formatted = as_tensor.reshape(1, *as_tensor.shape)
-    return formatted, signal
+    processed_as_tensor = torch.from_numpy(processed).float()
+    signal_as_tensor = torch.from_numpy(signal).float().to(PYTORCH_DEVICE)
+
+    formatted = processed_as_tensor.reshape(1, *processed_as_tensor.shape).to(
+        PYTORCH_DEVICE
+    )
+    return formatted, signal_as_tensor

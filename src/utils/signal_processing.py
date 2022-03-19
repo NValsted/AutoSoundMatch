@@ -4,6 +4,8 @@ import librosa
 import numpy as np
 import torch
 
+from src.config.base import PYTORCH_DEVICE
+
 
 def process_sample(signal: np.ndarray, sample_rate: int):
     """
@@ -33,9 +35,9 @@ def spectral_convergence(
     Euclidean norm - Esling, Philippe, et al. (2019).
     """
     if isinstance(source, np.ndarray):
-        source = torch.from_numpy(source).float()
+        source = torch.from_numpy(source).float().to(PYTORCH_DEVICE)
     if isinstance(target, np.ndarray):
-        target = torch.from_numpy(target).float()
+        target = torch.from_numpy(target).float().to(PYTORCH_DEVICE)
 
     squared_diff = torch.pow(target - source, 2)
     euclidean_norm = torch.sqrt(torch.sum(squared_diff))
@@ -51,9 +53,9 @@ def mse(
     Computes the mean squared error of two signals.
     """
     if isinstance(source, np.ndarray):
-        source = torch.from_numpy(source).float()
+        source = torch.from_numpy(source).float().to(PYTORCH_DEVICE)
     if isinstance(target, np.ndarray):
-        target = torch.from_numpy(target).float()
+        target = torch.from_numpy(target).float().to(PYTORCH_DEVICE)
 
     squared_diff = torch.pow(target - source, 2)
     mse = torch.mean(squared_diff)

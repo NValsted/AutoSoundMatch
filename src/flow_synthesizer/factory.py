@@ -5,7 +5,7 @@ from typing import Callable, Optional, Union
 
 from torch import nn
 
-from src.config.base import REGISTRY
+from src.config.base import PYTORCH_DEVICE, REGISTRY
 from src.config.registry_sections import DatasetSection, FlowSynthSection
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.basic import (
     DecodeCNN,
@@ -128,7 +128,7 @@ class ModelFactory:
                         semantic_dim=tmp.semantic_dim,
                     )
 
-                return ModelWrapper(model=model)  # TODO: .to(device)
+                return ModelWrapper(model=model)
 
     def _MLP(self) -> GatedMLP:
         constructor = self.model.value
@@ -206,9 +206,9 @@ class ModelFactory:
         if self.reconstruction_loss is None:
             raise ValueError("reconstruction_loss is required with current parameters")
         if self.reconstruction_loss == LossEnum.mse:
-            return nn.MSELoss(reduction="sum")  # TODO : .to(device)
+            return nn.MSELoss(reduction="sum").to(PYTORCH_DEVICE)
         elif self.reconstruction_loss == LossEnum.l1:
-            return nn.SmoothL1Loss(reduction="sum")  # TODO : .to(device)
+            return nn.SmoothL1Loss(reduction="sum").to(PYTORCH_DEVICE)
         elif self.reconstruction_loss == LossEnum.multinomial:
             return multinomial_loss
         elif self.reconstruction_loss == LossEnum.multi_mse:
