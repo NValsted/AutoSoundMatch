@@ -30,7 +30,7 @@ class ModelSuite:  # TODO : Ensure each model is only loaded into memory when ne
     WAE: ModelWrapper
     VAE_flow: ModelWrapper
     Flow_reg: ModelWrapper
-    Flow_dis: ModelWrapper
+    Flow_dis: lambda: NotImplementedError
 
     def __post_init__(self):
         # TODO : remember to remove when implementing get_model_suite

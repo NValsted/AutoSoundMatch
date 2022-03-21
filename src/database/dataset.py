@@ -2,9 +2,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Tuple
 
-import librosa
 import numpy as np
 import torch
+import torchaudio
 from sqlmodel import select
 from sqlmodel.sql.expression import SelectOfScalar
 from torch.utils.data import IterableDataset
@@ -89,33 +89,25 @@ class FlowSynthDataset(IterableDataset):
                 }
 
                 for audio_bridge in audio_bridges:
-                    signal = np.load(audio_bridge.audio_path)
-                    processed_signal = process_sample(signal)
+                    if audio_bridge.processed_path is None:
+                        signal = torch.load(audio_bridge.audio_path)
+                        processed_signal = process_sample(signal)
+                    else:
+                        processed_signal = torch.load(audio_bridge.processed_path)
+
                     self._cache.append(
-                        self._format_output(
-                            processed_signal,
-                            synth_params_dict[audio_bridge.synth_params],
+                        (
+                            processed_signal.float(),
+                            torch.Tensor(
+                                synth_params_dict[audio_bridge.synth_params]
+                            ).float(),
                             [],
-                            signal,
+                            [],
                         )
                     )
 
         self._expected_index += 1
         return self._cache.pop()
-
-    @staticmethod
-    def _format_output(
-        processed_signal: np.ndarray,
-        synth_params: np.ndarray,
-        metadata: list,
-        signal: np.ndarray,
-    ):
-        return (
-            torch.from_numpy(processed_signal).float(),
-            torch.tensor(synth_params).float(),
-            metadata,
-            signal,
-        )
 
     def __len__(self):
         return len(self.audio_bridges)
@@ -127,22 +119,23 @@ def load_formatted_audio(audio_path: str) -> Tuple[torch.Tensor, torch.Tensor]:
     """
 
     if re.search(r"\.wav$", audio_path):
-        signal, sample_rate = librosa.load(audio_path)
+        signal, sample_rate = torchaudio.load(audio_path)
         if sample_rate != REGISTRY.SYNTH.sample_rate:
-            signal = librosa.resample(signal, sample_rate, REGISTRY.SYNTH.sample_rate)
+            resample_transform = torchaudio.transforms.Resample(
+                sample_rate, REGISTRY.SYNTH.sample_rate
+            )
+            signal = resample_transform(signal)
+
+    elif re.search(r"\.pt$", audio_path):
+        signal = torch.load(audio_path).to(PYTORCH_DEVICE)
 
     elif re.search(r"\.npy$", audio_path):
-        signal = np.load(audio_path)
+        signal_as_ndarray = np.load(audio_path)
+        signal = torch.from_numpy(signal_as_ndarray).float().to(PYTORCH_DEVICE)
 
     else:
         raise ValueError(f"Unsupported file format: {audio_path}")
 
     processed = process_sample(signal)
-
-    processed_as_tensor = torch.from_numpy(processed).float()
-    signal_as_tensor = torch.from_numpy(signal).float().to(PYTORCH_DEVICE)
-
-    formatted = processed_as_tensor.reshape(1, *processed_as_tensor.shape).to(
-        PYTORCH_DEVICE
-    )
-    return formatted, signal_as_tensor
+    formatted = processed.reshape(1, *processed.shape).contiguous().to(PYTORCH_DEVICE)
+    return formatted, signal

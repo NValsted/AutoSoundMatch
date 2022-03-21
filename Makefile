@@ -31,6 +31,7 @@ prepare-data:
 	poetry run python asm-cli.py generate-param-tuples \
 		--midi-path ${MIDI_DIR} \
 		--audio-path ${AUDIO_DIR}
+	poetry run python asm-cli.py process-audio
 
 model:
 	@echo "Training main model"

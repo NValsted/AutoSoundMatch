@@ -4,25 +4,26 @@ import random
 from glob import glob
 from typing import Optional
 
-import numpy as np
 import torch
 import typer
 from librosa.util import valid_audio
 from librosa.util.exceptions import ParameterError
+from sqlmodel import select
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
-from src.config.base import REGISTRY, Registry
+from src.config.base import PYTORCH_DEVICE, REGISTRY, Registry
 from src.config.registry_sections import RegistrySectionsEnum, RegistrySectionsMap
 from src.database.dataset import FlowSynthDataset, load_formatted_audio
 from src.database.factory import DBFactory
 from src.daw.audio_model import AudioBridge, AudioBridgeTable  # NOQA: F401
 from src.daw.factory import SynthHostFactory
-from src.daw.render_model import RenderParams, RenderParamsTable
+from src.daw.render_model import RenderParams, RenderParamsTable  # NOQA: F401
 from src.daw.synth_model import SynthParams, SynthParamsTable  # NOQA: F401
 from src.flow_synthesizer.api import evaluate_inference, get_model, prepare_registry
 from src.flow_synthesizer.base import ModelWrapper
 from src.midi.generation import generate_midi
+from src.utils.signal_processing import process_sample
 
 app = typer.Typer()
 
@@ -152,7 +153,7 @@ def generate_param_tuples(
     db = db_factory()
 
     render_params = RenderParams()
-    db.add([RenderParamsTable(**render_params.dict())])
+    # db.add([RenderParamsTable(**render_params.dict())])
 
     generate_midi(midi_path)
     for midi_file_path in tqdm(glob(f"{midi_path}/.generated/*.mid")):
@@ -160,18 +161,22 @@ def generate_param_tuples(
         for i in range(patches_per_midi):
             synth_host.set_random_patch()
             audio = synth_host.render(midi_file_path, render_params)
-            audio_file_path = midi_file_path.replace(".mid", f"_{i}.npy").replace(
+            audio_file_path = midi_file_path.replace(".mid", f"_{i}.pt").replace(
                 midi_path, audio_path
             )
 
             try:
                 valid_audio(audio)
+                audio_as_tensor = torch.from_numpy(audio).float()
+                if audio_as_tensor.min() == 0 and audio_as_tensor.max() == 0:
+                    raise ParameterError
+
             except ParameterError:
                 typer.echo(f"Skipping invalid audio: {audio_file_path}")
                 synth_host = sh_factory()
                 continue
 
-            np.save(audio_file_path, audio)
+            torch.save(audio_as_tensor, audio_file_path)
             REGISTRY.add_blob(audio_file_path)
 
             synth_params = synth_host.get_patch_as_model(table=True)
@@ -183,6 +188,28 @@ def generate_param_tuples(
             )
             db.add([synth_params])
             db.add([audio_bridge])
+
+
+@app.command()
+def process_audio():
+    db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
+    db = db_factory()
+
+    with db.session() as session:
+        query = select(AudioBridgeTable).where()
+        audio_bridges = session.exec(query).all()
+
+    for bridge in tqdm(audio_bridges):
+        signal = torch.load(bridge.audio_path).to(PYTORCH_DEVICE)
+        processed = process_sample(signal)
+
+        save_path = bridge.audio_path.replace(".pt", "_processed.pt")
+        bridge.processed_path = save_path
+
+        torch.save(processed, save_path)
+        REGISTRY.add_blob(save_path)
+
+    db.add(audio_bridges)
 
 
 @app.command()
