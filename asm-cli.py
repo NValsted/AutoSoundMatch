@@ -4,11 +4,11 @@ import random
 from glob import glob
 from typing import Optional
 
+import numpy as np
 import torch
 import typer
 from librosa.util import valid_audio
 from librosa.util.exceptions import ParameterError
-from scipy.io import wavfile
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
@@ -160,7 +160,7 @@ def generate_param_tuples(
         for i in range(patches_per_midi):
             synth_host.set_random_patch()
             audio = synth_host.render(midi_file_path, render_params)
-            audio_file_path = midi_file_path.replace(".mid", f"_{i}.wav").replace(
+            audio_file_path = midi_file_path.replace(".mid", f"_{i}.npy").replace(
                 midi_path, audio_path
             )
 
@@ -171,18 +171,13 @@ def generate_param_tuples(
                 synth_host = sh_factory()
                 continue
 
-            wavfile.write(
-                audio_file_path,
-                render_params.sample_rate,
-                audio.transpose(),
-            )
+            np.save(audio_file_path, audio)
             REGISTRY.add_blob(audio_file_path)
 
             synth_params = synth_host.get_patch_as_model(table=True)
             audio_bridge = AudioBridgeTable(
                 audio_path=audio_file_path,
                 midi_path=midi_file_path,
-                render_params=render_params.id,
                 synth_params=synth_params.id,
                 test_flag=True if random.random() < 0.1 else False,
             )

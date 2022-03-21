@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from typing import Tuple
 
@@ -8,7 +9,7 @@ from sqlmodel import select
 from sqlmodel.sql.expression import SelectOfScalar
 from torch.utils.data import IterableDataset
 
-from src.config.base import PYTORCH_DEVICE
+from src.config.base import PYTORCH_DEVICE, REGISTRY
 from src.database.base import Database
 from src.daw.audio_model import AudioBridgeTable
 from src.daw.synth_model import SynthParamsTable
@@ -88,8 +89,8 @@ class FlowSynthDataset(IterableDataset):
                 }
 
                 for audio_bridge in audio_bridges:
-                    signal, sample_rate = librosa.load(audio_bridge.audio_path)
-                    processed_signal = process_sample(signal, sample_rate)
+                    signal = np.load(audio_bridge.audio_path)
+                    processed_signal = process_sample(signal)
                     self._cache.append(
                         self._format_output(
                             processed_signal,
@@ -125,8 +126,18 @@ def load_formatted_audio(audio_path: str) -> Tuple[torch.Tensor, torch.Tensor]:
     Loads an audio file, and prepares it to be used in inference step.
     """
 
-    signal, sample_rate = librosa.load(audio_path)
-    processed = process_sample(signal, sample_rate)
+    if re.search(r"\.wav$", audio_path):
+        signal, sample_rate = librosa.load(audio_path)
+        if sample_rate != REGISTRY.SYNTH.sample_rate:
+            signal = librosa.resample(signal, sample_rate, REGISTRY.SYNTH.sample_rate)
+
+    elif re.search(r"\.npy$", audio_path):
+        signal = np.load(audio_path)
+
+    else:
+        raise ValueError(f"Unsupported file format: {audio_path}")
+
+    processed = process_sample(signal)
 
     processed_as_tensor = torch.from_numpy(processed).float()
     signal_as_tensor = torch.from_numpy(signal).float().to(PYTORCH_DEVICE)

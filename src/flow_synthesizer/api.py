@@ -17,7 +17,7 @@ from src.daw.render_model import RenderParams
 from src.flow_synthesizer.base import ModelWrapper
 from src.flow_synthesizer.factory import ModelFactory
 from src.utils.loss_model import LossTable, TrainValTestEnum
-from src.utils.signal_processing import mse, spectral_convergence
+from src.utils.signal_processing import spectral_convergence, spectral_mse
 
 
 @dataclass
@@ -113,7 +113,7 @@ def get_model_suite():
 def evaluate_inference(
     model: ModelWrapper,
     audio_bridges: list[AudioBridgeTable],
-    write_audio: bool = True,
+    write_audio: bool = False,
 ) -> list[LossTable]:
     # TODO: add possibility to evaluate based on different midi files
 
@@ -135,10 +135,10 @@ def evaluate_inference(
             wavfile.write(
                 bridge.audio_path.replace(".wav", "_inferred.wav"),
                 render_params.sample_rate,
-                inferred_audio.transpose(),
+                inferred_audio,
             )
 
-        for loss_callable in (spectral_convergence, mse):
+        for loss_callable in (spectral_convergence, spectral_mse):
             loss = loss_callable(inferred_audio, target_signal)
 
             loss_model = LossTable(

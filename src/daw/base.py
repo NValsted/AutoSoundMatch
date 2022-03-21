@@ -111,4 +111,4 @@ class SynthHost:
         """
         self.synth.load_midi(midi_path)
         self.engine.render(render_params.duration)
-        return self.engine.get_audio()
+        return self.engine.get_audio().transpose()
