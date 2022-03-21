@@ -151,9 +151,7 @@ def generate_param_tuples(
 
     synth_host = sh_factory()
     db = db_factory()
-
     render_params = RenderParams()
-    # db.add([RenderParamsTable(**render_params.dict())])
 
     generate_midi(midi_path)
     for midi_file_path in tqdm(glob(f"{midi_path}/.generated/*.mid")):

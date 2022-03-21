@@ -50,4 +50,5 @@ reset:
 
 inspect:
 	@echo "Inspecting project state"
+	@poetry run python -c "import warnings; warnings.filterwarnings('ignore'); from torch.cuda import is_available; print('USING GPU' if is_available() else 'USING CPU')"
 	poetry run python asm-cli.py inspect-registry

@@ -76,7 +76,7 @@ class SignalProcessor:
             ),
             AmplitudeToDB(top_db=80),
         )
-        self._processor = torch.nn.Sequential(*pipeline)
+        self._processor = torch.nn.Sequential(*pipeline).to(PYTORCH_DEVICE)
 
     def _safe_forward(self, signal: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
         if isinstance(signal, np.ndarray):
