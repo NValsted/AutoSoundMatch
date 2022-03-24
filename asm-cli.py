@@ -86,7 +86,7 @@ def reset():
     """
     global REGISTRY
 
-    if REGISTRY.DATABASE is not None:
+    if REGISTRY.DATABASE != None:  # NOQA: E711
         db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
         db = db_factory()
         db.drop_tables()
