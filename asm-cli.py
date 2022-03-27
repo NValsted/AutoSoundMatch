@@ -3,11 +3,13 @@ import json
 import random
 from glob import glob
 from typing import Optional
+from uuid import uuid4
 
 import torch
 import typer
 from librosa.util import valid_audio
 from librosa.util.exceptions import ParameterError
+from mido import MidiFile
 from sqlmodel import select
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
@@ -22,7 +24,7 @@ from src.daw.render_model import RenderParams, RenderParamsTable  # NOQA: F401
 from src.daw.synth_model import SynthParams, SynthParamsTable  # NOQA: F401
 from src.flow_synthesizer.api import evaluate_inference, get_model, prepare_registry
 from src.flow_synthesizer.base import ModelWrapper
-from src.midi.generation import generate_midi
+from src.midi.generation import generate_midi, partition_midi
 from src.utils.signal_processing import process_sample
 
 app = typer.Typer()
@@ -94,6 +96,25 @@ def reset():
     REGISTRY.clear_blobs()
     REGISTRY = Registry()
     REGISTRY.commit()
+
+
+@app.command()
+def partition_midi_files(
+    directory: list[str] = typer.Option([]), output_dir: str = typer.Option(...)
+):
+    """
+    Takes a list of directories containing midi files and partitions them into
+    fixed size chunks.
+    """
+    for dir in directory:
+        file_paths = glob(f"{dir}/*.mid")
+        midi_files = [MidiFile(path) for path in file_paths]
+        partitioned_files = partition_midi(midi_files)
+
+        for file in partitioned_files:
+            save_path = f"{output_dir}/{str(uuid4())}.mid"
+            file.save(save_path)
+            REGISTRY.add_blob(save_path)
 
 
 @app.command()

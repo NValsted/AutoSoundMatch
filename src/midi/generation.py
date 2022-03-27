@@ -117,6 +117,7 @@ class MidiPartition:
         message = message_queue.popleft()
 
         if self._tick_acc + message.time > self._total_ticks:
+            message.time = int(message.time - self._total_ticks + self._tick_acc)
             message_queue.appendleft(message)
 
             if self.strategy == MidiPartition.BoundaryStrategy.TRIM:
@@ -137,7 +138,7 @@ class MidiPartition:
 
     def finalize(self) -> Optional[MidiFile]:
         for message in self._messages:
-            if not message.is_meta and not message.type == "set_tempo":
+            if message.type == "note_on":
                 break
         else:
             return
@@ -166,7 +167,7 @@ class MidiPartition:
 
         for track in file.tracks:
             message_queue = deque(track)
-            while message_queue:
+            while len(message_queue) > 0:
                 try:
                     active_partition.parse_message(message_queue)
                 except StopIteration:
@@ -187,7 +188,7 @@ class MidiPartition:
 def partition_midi(
     midi_files: list[MidiFile],
     properties: MidiSnippetProperties = MidiSnippetProperties(),
-):
+) -> list[MidiFile]:
     """
     This takes a collection of MIDI files and partitions them into
     fixed-size snippets with desired properties.
@@ -195,7 +196,7 @@ def partition_midi(
 
     partitioned_files = []
 
-    for file in midi_files:
+    for file in tqdm(midi_files):
         partitions = [
             partition.finalize()
             for partition in MidiPartition.partition_file(
