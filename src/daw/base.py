@@ -74,6 +74,17 @@ class SynthHost:
         else:
             return SynthParams(**attributes)
 
+    def load_preset(self, patch_path: Path) -> list[float]:
+        self.synth.load_preset(str(patch_path))
+        patch = [
+            float(param["text"])
+            for param in sorted(
+                self.synth.get_plugin_parameters_description(),
+                key=lambda x: x["index"],
+            )
+        ]
+        return patch
+
     def set_patch(self, patch: list[float]) -> None:
         plugin_parameters = sorted(
             self.synth.get_plugin_parameters_description(),
@@ -94,7 +105,7 @@ class SynthHost:
         ]
         self.synth.set_patch(finalized_patch)
 
-    def set_random_patch(self) -> list[tuple[int, float]]:
+    def random_patch(self, apply: bool = False) -> list[tuple[int, float]]:
         """
         Generate random parameters for the synth.
         """
@@ -102,7 +113,8 @@ class SynthHost:
             (param["index"], uniform(0, 1).rvs())
             for param in self.synth.get_plugin_parameters_description()
         ]
-        self.synth.set_patch(patch)
+        if apply:
+            self.synth.set_patch(patch)
         return patch
 
     def render(self, midi_path: Union[Path, str]) -> np.ndarray:

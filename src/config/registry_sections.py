@@ -20,6 +20,7 @@ from src.flow_synthesizer.enums import (
 class PathSection(BaseModel):
     project_root: Path = Field(default_factory=get_project_root)
     downloads: Path = path_field_factory(get_project_root() / "data" / "downloads")
+    presets: Path = path_field_factory(get_project_root() / "data" / "presets")
     model: Path = path_field_factory(get_project_root() / "data" / "model")
     audio: Path = path_field_factory(get_project_root() / "data" / "audio")
     midi: Path = path_field_factory(get_project_root() / "data" / "midi")

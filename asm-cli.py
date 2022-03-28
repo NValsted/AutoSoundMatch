@@ -8,6 +8,7 @@ app = typer.Typer()
 @app.command()
 def setup_paths(
     downloads: Optional[str] = typer.Option(None),
+    presets: Optional[str] = typer.Option(None),
     model: Optional[str] = typer.Option(None),
     audio: Optional[str] = typer.Option(None),
     midi: Optional[str] = typer.Option(None),
@@ -21,6 +22,8 @@ def setup_paths(
     path_kwargs = {}
     if downloads is not None:
         path_kwargs["downloads"] = downloads
+    if presets is not None:
+        path_kwargs["presets"] = presets
     if model is not None:
         path_kwargs["model"] = model
     if audio is not None:
@@ -211,12 +214,14 @@ def setup_relational_models(
 
 
 @app.command()
-def generate_param_tuples(
-    patches_per_midi: int = typer.Option(5),
+def generate_param_triples(
+    num_presets: Optional[int] = typer.Option(500),
+    num_midi: Optional[int] = typer.Option(500),
+    pairs: int = typer.Option(10),
 ):
     """
-    Generate tuples of audio files with corresponding midi files, render
-    parameters and parameters from a VST instrument.
+    Generate triples of audio files with corresponding midi files and
+    parameters from a VST instrument.
     """
     import random
 
@@ -237,11 +242,47 @@ def generate_param_tuples(
     synth_host = sh_factory()
     db = db_factory()
 
-    generate_midi()
     midi_paths = list(REGISTRY.PATH.midi.glob("*.mid"))
-    for midi_file_path in tqdm(midi_paths):
-        for i in range(patches_per_midi):
-            synth_host.set_random_patch()
+
+    if num_midi is None:
+        num_midi = len(midi_paths)
+
+    if len(midi_paths) < num_midi:
+        typer.echo(f"Generating {num_midi - len(midi_paths)} additional midi files")
+        generate_midi(midi_paths, number_of_files=num_midi - len(midi_paths))
+        midi_paths = list(REGISTRY.PATH.midi.glob("*.mid"))
+
+    preset_paths = list(REGISTRY.PATH.presets.glob("*.fxp"))
+    presets = [synth_host.load_preset(path) for path in preset_paths]
+
+    if num_presets is None:
+        num_presets = len(presets)
+
+    if len(presets) < num_presets:
+        typer.echo(f"Generating {num_presets - len(presets)} additional presets")
+        presets.extend(
+            [
+                [param[-1] for param in synth_host.random_patch()]
+                for _ in range(num_presets - len(presets))
+            ]
+        )
+
+    random.shuffle(midi_paths)
+    random.shuffle(presets)
+    midi_paths = midi_paths[:num_midi]
+    presets = presets[:num_presets]
+
+    for i, preset in enumerate(tqdm(presets)):
+
+        synth_host = sh_factory()
+        synth_host.set_patch(preset)
+        synth_params = synth_host.get_patch_as_model(table=True)
+        synth_params_id = synth_params.id
+        db.safe_add([synth_params])
+
+        for j in range(pairs):
+            midi_file_path = midi_paths[(i + j) % len(midi_paths)]
+
             audio = synth_host.render(midi_file_path)
             audio_file_path = REGISTRY.PATH.audio / (midi_file_path.name).replace(
                 midi_file_path.suffix, f"_{i}.pt"
@@ -261,14 +302,13 @@ def generate_param_tuples(
             torch.save(audio_as_tensor, audio_file_path)
             REGISTRY.add_blob(audio_file_path)
 
-            synth_params = synth_host.get_patch_as_model(table=True)
             audio_bridge = AudioBridgeTable(
                 audio_path=str(audio_file_path),
                 midi_path=str(midi_file_path),
-                synth_params=synth_params.id,
+                synth_params=synth_params_id,
                 test_flag=True if random.random() < 0.1 else False,
             )
-            db.safe_add([synth_params])
+
             db.safe_add([audio_bridge])
 
 
@@ -444,7 +484,7 @@ def estimate_synth_params(
         params = model(formatted_signal)
 
     synth_host.set_patch(params[0].tolist())
-    print(synth_host.get_patch_as_model())  # TODO : save as .fxp
+    typer.echo(synth_host.get_patch_as_model())  # TODO : save as .fxp
 
 
 if __name__ == "__main__":

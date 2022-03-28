@@ -2,6 +2,8 @@ MIDI_DIR ?= data/midi
 AUDIO_DIR ?= data/audio
 MODEL_DIR ?= data/model
 DOWNLOADS_DIR ?= data/downloads
+
+PRESETS_DIR ?= data/presets
 SYNTH_PATH ?= ./data/synth/MikaMicro64.dll
 
 DOCKER_IMAGE ?= nvalsted/autosoundmatch:latest
@@ -21,7 +23,8 @@ paths:
 		--midi ${MIDI_DIR} \
 		--audio ${AUDIO_DIR} \
 		--model ${MODEL_DIR} \
-		--downloads ${DOWNLOADS_DIR}
+		--downloads ${DOWNLOADS_DIR} \
+		--presets ${PRESETS_DIR}
 
 resources:
 	@if [ ! -d "${DOWNLOADS_DIR}/msmd_real_performances" ]; \
@@ -55,7 +58,7 @@ prepare-data:
 	poetry run python asm-cli.py partition-midi-files \
 		--directory ${DOWNLOADS_DIR}/msmd_real_performances/msmd_all_deadpan/performance/ \
 		--directory ${DOWNLOADS_DIR}/lmd_matched/A/A/
-	poetry run python asm-cli.py generate-param-tuples
+	poetry run python asm-cli.py generate-param-triples
 	poetry run python asm-cli.py process-audio
 
 model:
