@@ -217,7 +217,7 @@ def setup_relational_models(
 def generate_param_triples(
     num_presets: Optional[int] = typer.Option(500),
     num_midi: Optional[int] = typer.Option(500),
-    pairs: int = typer.Option(10),
+    pairs: Optional[int] = typer.Option(10),
 ):
     """
     Generate triples of audio files with corresponding midi files and
@@ -247,6 +247,9 @@ def generate_param_triples(
     if num_midi is None:
         num_midi = len(midi_paths)
 
+    if pairs is None:
+        pairs = num_midi
+
     if len(midi_paths) < num_midi:
         typer.echo(f"Generating {num_midi - len(midi_paths)} additional midi files")
         generate_midi(midi_paths, number_of_files=num_midi - len(midi_paths))
@@ -272,15 +275,14 @@ def generate_param_triples(
     midi_paths = midi_paths[:num_midi]
     presets = presets[:num_presets]
 
-    for i, preset in enumerate(tqdm(presets)):
+    for i, preset in enumerate(tqdm(presets, leave=True)):
 
-        synth_host = sh_factory()
         synth_host.set_patch(preset)
         synth_params = synth_host.get_patch_as_model(table=True)
         synth_params_id = synth_params.id
         db.safe_add([synth_params])
 
-        for j in range(pairs):
+        for j in tqdm(range(pairs), leave=False):
             midi_file_path = midi_paths[(i + j) % len(midi_paths)]
 
             audio = synth_host.render(midi_file_path)
