@@ -206,7 +206,7 @@ class ModelWrapper:
         wrapped = cls(model=_loaded_model)
 
         matched_uuid = re.search(
-            r"[\da-f]{8}\b-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-\b[\da-f]{12}", path
+            r"[\da-f]{8}\b-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-\b[\da-f]{12}", str(path)
         )  # TODO: save/load ModelWrapper attributes instead
         wrapped.id = matched_uuid.group(0) if matched_uuid is not None else None
 

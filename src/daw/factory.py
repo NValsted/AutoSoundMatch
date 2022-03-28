@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 from dawdreamer import RenderEngine
 
@@ -10,7 +11,7 @@ from src.utils.temporary_context import temporary_attrs
 
 @dataclass
 class SynthHostFactory:
-    synth_path: str
+    synth_path: Path
     sample_rate: int
     buffer_size: int
     duration: float
@@ -20,7 +21,7 @@ class SynthHostFactory:
         with temporary_attrs(self, *args, **kwargs) as tmp:
             engine = RenderEngine(tmp.sample_rate, tmp.buffer_size)
             engine.set_bpm(tmp.bpm)
-            synth = engine.make_plugin_processor("synth", tmp.synth_path)
+            synth = engine.make_plugin_processor("synth", str(tmp.synth_path))
             engine.load_graph([(synth, [])])
             return SynthHost(engine=engine, synth=synth, **kwargs)
 

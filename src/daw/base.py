@@ -1,12 +1,12 @@
-import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Union
 
 import numpy as np
 from dawdreamer import PluginProcessor, RenderEngine
 from scipy.stats import uniform
 
-from src.daw.render_model import RenderParams
+from src.config.base import REGISTRY
 from src.utils.code_generation import INDENT, get_code_gen_header, sanitize_attribute
 
 if TYPE_CHECKING:
@@ -17,11 +17,11 @@ if TYPE_CHECKING:
 class SynthHost:
     engine: RenderEngine
     synth: PluginProcessor
-    _synth_model_path: str = (
-        f"{os.path.dirname(os.path.realpath(__file__))}/synth_model.py"
+    _synth_model_path: Path = (
+        REGISTRY.PATH.project_root / "src" / "daw" / "synth_model.py"
     )
 
-    def create_parameter_table(self) -> str:
+    def create_parameter_table(self) -> Path:
         sorted_parameters = sorted(
             self.synth.get_plugin_parameters_description(), key=lambda x: x["index"]
         )
@@ -35,7 +35,7 @@ class SynthHost:
 
         str_field_names = map(lambda x: '"{}"'.format(x.split(":")[0]), fields)
 
-        with open(self._synth_model_path, "w") as f:
+        with self._synth_model_path.open("w") as f:
             f.write(get_code_gen_header())
             f.write("from typing import Optional\n\n")
             f.write("from sqlmodel import SQLModel, Field\n")
@@ -105,10 +105,10 @@ class SynthHost:
         self.synth.set_patch(patch)
         return patch
 
-    def render(self, midi_path: str, render_params: RenderParams) -> np.ndarray:
+    def render(self, midi_path: Union[Path, str]) -> np.ndarray:
         """
         load the midi file and and an audio file.
         """
-        self.synth.load_midi(midi_path)
-        self.engine.render(render_params.duration)
+        self.synth.load_midi(str(midi_path))
+        self.engine.render(REGISTRY.SYNTH.duration)
         return self.engine.get_audio().transpose()

@@ -1,8 +1,10 @@
 from enum import Enum, unique
+from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from src.config.paths import get_project_root, path_field_factory
 from src.flow_synthesizer.enums import (
     AEBaseModelEnum,
     DisentanglingModelEnum,
@@ -15,6 +17,17 @@ from src.flow_synthesizer.enums import (
 )
 
 
+class PathSection(BaseModel):
+    project_root: Path = Field(default_factory=get_project_root)
+    downloads: Path = path_field_factory(get_project_root() / "data" / "downloads")
+    model: Path = path_field_factory(get_project_root() / "data" / "model")
+    audio: Path = path_field_factory(get_project_root() / "data" / "audio")
+    midi: Path = path_field_factory(get_project_root() / "data" / "midi")
+    processed_audio: Path = path_field_factory(
+        get_project_root() / "data" / "processed_audio"
+    )
+
+
 class DatabaseSection(BaseModel):
     url: str
     username: Optional[str] = None
@@ -22,7 +35,7 @@ class DatabaseSection(BaseModel):
 
 
 class SynthSection(BaseModel):
-    synth_path: str
+    synth_path: Path
     sample_rate: int = 22050
     buffer_size: int = 128
     bpm: int = 128
@@ -41,6 +54,7 @@ class FlowSynthSection(BaseModel):
     the best audio reconstruction performance in Esling, Philippe, et
     al. (2019).
     """
+
     encoding_dim: int = 64
     latent_dim: int = 8
     channels: int = 32
@@ -61,7 +75,7 @@ class FlowSynthSection(BaseModel):
     disentangling_model: Optional[DisentanglingModelEnum] = None
     disentangling_layers: Optional[int] = None
     semantic_dim: int = -1
-    latest_model_path: Optional[str] = None
+    active_model_path: Optional[Path] = None
 
 
 class TrainMetadataSection(BaseModel):
@@ -83,6 +97,7 @@ class TrainMetadataSection(BaseModel):
 
 @unique
 class RegistrySectionsEnum(str, Enum):
+    PATH = "PATH"
     DATABASE = "DATABASE"
     SYNTH = "SYNTH"
     DATASET = "DATASET"
@@ -91,6 +106,7 @@ class RegistrySectionsEnum(str, Enum):
 
 
 RegistrySectionsMap = dict(
+    PATH=PathSection,
     DATABASE=DatabaseSection,
     SYNTH=SynthSection,
     DATASET=DatasetSection,

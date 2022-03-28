@@ -3,6 +3,7 @@ from typing import Optional
 
 import torch
 from scipy.io import wavfile
+from tqdm import tqdm
 
 from src.config.base import REGISTRY
 from src.config.registry_sections import (
@@ -13,7 +14,6 @@ from src.config.registry_sections import (
 from src.database.dataset import FlowSynthDataset, load_formatted_audio
 from src.daw.audio_model import AudioBridgeTable
 from src.daw.factory import SynthHostFactory
-from src.daw.render_model import RenderParams
 from src.flow_synthesizer.base import ModelWrapper
 from src.flow_synthesizer.factory import ModelFactory
 from src.utils.loss_model import LossTable, TrainValTestEnum
@@ -121,21 +121,25 @@ def evaluate_inference(
 
     losses = []
 
-    for bridge in audio_bridges:
+    for bridge in tqdm(audio_bridges):
         formatted_signal, target_signal = load_formatted_audio(bridge.audio_path)
         with torch.no_grad():
             estimated_params = model(formatted_signal)[0]
 
-        render_params = RenderParams()  # TODO: bridge.render_params
         synth_host = sh_factory()
         synth_host.set_patch(estimated_params.tolist())
-        inferred_audio = synth_host.render(bridge.midi_path, render_params)
+        inferred_audio = synth_host.render(bridge.midi_path)
 
         if write_audio:
             wavfile.write(
-                bridge.audio_path.replace(".wav", "_inferred.wav"),
-                render_params.sample_rate,
+                bridge.audio_path.replace(".pt", "_inferred.wav"),
+                REGISTRY.SYNTH.sample_rate,
                 inferred_audio,
+            )
+            wavfile.write(
+                bridge.audio_path.replace(".pt", ".wav"),
+                REGISTRY.SYNTH.sample_rate,
+                target_signal.cpu().numpy(),
             )
 
         for loss_callable in (spectral_convergence, spectral_mse):

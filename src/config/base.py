@@ -1,6 +1,7 @@
 import os
 import pickle
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any, Optional, Union
 from warnings import warn
 
 import torch
@@ -10,6 +11,7 @@ from src.config.registry_sections import (
     DatabaseSection,
     DatasetSection,
     FlowSynthSection,
+    PathSection,
     SynthSection,
     TrainMetadataSection,
 )
@@ -23,6 +25,7 @@ class Registry(BaseModel):
     Wrapper used for accessing and manipulating the registry file.
     """
 
+    PATH: Optional[PathSection] = None
     DATABASE: Optional[DatabaseSection] = None
     SYNTH: Optional[SynthSection] = None
     DATASET: Optional[DatasetSection] = None
@@ -42,11 +45,11 @@ class Registry(BaseModel):
             warn(f"Section {__name} is not initialized")
         return attr
 
-    def add_blob(self, blob_ref: str, validate: bool = True) -> None:
+    def add_blob(self, blob_ref: Union[str, Path], validate: bool = True) -> None:
         if validate:
             assert os.path.exists(blob_ref), f"BLOB {blob_ref} does not exist"
         with open(_BLOB_REFERENCE_FILE, "a") as f:
-            f.write(blob_ref + "\n")  # TODO : maybe convert to absolute path
+            f.write(str(blob_ref) + "\n")  # TODO : maybe convert to absolute path
         # TODO : look into ways to optimize this e.g. don't add same file twice
 
     def clear_blobs(self) -> None:
@@ -54,7 +57,10 @@ class Registry(BaseModel):
             for line in f.readlines():
                 blob_ref = line.strip()
                 if os.path.exists(blob_ref):
-                    os.remove(blob_ref)
+                    try:
+                        os.remove(blob_ref)
+                    except PermissionError as e:
+                        warn(f"Attempted to remove {blob_ref}, but got exception {e}")
                 else:
                     warn(f"Attempted to remove {blob_ref}, but it does not exist")
         with open(_BLOB_REFERENCE_FILE, "w") as f:

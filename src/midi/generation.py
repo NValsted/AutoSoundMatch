@@ -1,9 +1,8 @@
-import os
 import random
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
-from shutil import rmtree
+from pathlib import Path
 from typing import Optional, Union
 
 from mido import Message, MetaMessage, MidiFile, MidiTrack, bpm2tempo, second2tick
@@ -15,13 +14,14 @@ from src.midi.base import ASMMidiNote, ASMMidiTrack
 from src.utils.distributions.base import EmpiricalDistribution
 
 
-def generate_midi(target_dir: str, number_of_files: int = 50):
-    result_dir = f"{target_dir}/.generated"
-    if not os.path.exists(target_dir):
-        os.mkdir(target_dir)
-    if os.path.exists(result_dir):
-        rmtree(result_dir)
-    os.mkdir(result_dir)
+def generate_midi(
+    target_dir: Optional[Union[str, Path]] = None, number_of_files: int = 50
+):
+    if target_dir is not None:
+        result_dir = Path(target_dir).resolve()
+        result_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        result_dir = REGISTRY.PATH.midi
 
     scales = ["major", "minor", "blues pentatonic minor", "chromatic", "harmonic major"]
     octave_distributions = [
@@ -59,7 +59,8 @@ def generate_midi(target_dir: str, number_of_files: int = 50):
         file = MidiFile(type=0)
         file.tracks.append(track)
 
-        save_path = f"{result_dir}/{i}.mid"
+        save_path = result_dir / f"generated_{i}.mid"
+        save_path = save_path.resolve()
         file.save(save_path)
         REGISTRY.add_blob(save_path)
 

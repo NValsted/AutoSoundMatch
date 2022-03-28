@@ -1,9 +1,10 @@
 MIDI_DIR ?= data/midi
 AUDIO_DIR ?= data/audio
 MODEL_DIR ?= data/model
-DOCKER_IMAGE ?= nvalsted/autosoundmatch:latest
+DOWNLOADS_DIR ?= data/downloads
+SYNTH_PATH ?= ./data/synth/MikaMicro64.dll
 
-SYNTH_PATH ?= ./data/vst/MikaMicro64.dll
+DOCKER_IMAGE ?= nvalsted/autosoundmatch:latest
 
 build-image:
 ifeq ($(OS),Windows_NT)
@@ -15,28 +16,31 @@ endif
 run-image-interactive:
 	docker run --rm -it ${DOCKER_IMAGE}
 
-fetch-resources:
-	@echo "NOT YET IMPLEMENTED"
+resources:
+	poetry run python asm-cli.py setup-paths \
+		--midi ${MIDI_DIR} \
+		--audio ${AUDIO_DIR} \
+		--model ${MODEL_DIR} \
+		--downloads ${DOWNLOADS_DIR}
+	# wget http://www.cp.jku.at/resources/2019_RLScoFo_TISMIR/data.tar.gz
+	# tar -xzvf data.tar.gz
 
 build-vst:
 	@echo "Building OpnTaybel VST"
 	@echo "NOT YET IMPLEMENTED"
 
 prepare-data:
-	mkdir -p ${MIDI_DIR} ${AUDIO_DIR} ${MODEL_DIR}
-	@echo "Setting up local database and generating data"
 	poetry run python asm-cli.py setup-relational-models \
-		--synth-path ${SYNTH_PATH} \
-		--engine-url "sqlite:///data/local.db"
-	poetry run python asm-cli.py generate-param-tuples \
-		--midi-path ${MIDI_DIR} \
-		--audio-path ${AUDIO_DIR}
+		--engine-url "sqlite:///data/local.db" \
+		--synth-path ${SYNTH_PATH}
+	poetry run python asm-cli.py partition-midi-files \
+		--directory data/msmd_real_performances/msmd_all_deadpan/performance
+	poetry run python asm-cli.py generate-param-tuples
 	poetry run python asm-cli.py process-audio
 
 model:
 	@echo "Training main model"
-	poetry run python asm-cli.py train-model \
-		--model-dir ${MODEL_DIR}
+	poetry run python asm-cli.py train-model
 
 model-suite:
 	@echo "NOT YET IMPLEMENTED"
