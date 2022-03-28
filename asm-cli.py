@@ -268,15 +268,21 @@ def generate_param_tuples(
                 synth_params=synth_params.id,
                 test_flag=True if random.random() < 0.1 else False,
             )
-            db.add([synth_params])
-            db.add([audio_bridge])
+            db.safe_add([synth_params])
+            db.safe_add([audio_bridge])
 
 
 @app.command()
-def process_audio():
+def process_audio(
+    chunk_size: int = typer.Option(512),
+    reprocess: bool = typer.Option(False),
+    num_workers: int = typer.Option(4),
+):
+    from multiprocessing.pool import ThreadPool
     from pathlib import Path
 
     import torch
+    from sqlalchemy import func
     from sqlmodel import select
     from tqdm import tqdm
 
@@ -284,26 +290,50 @@ def process_audio():
     from src.database.factory import DBFactory
     from src.daw.audio_model import AudioBridgeTable
     from src.daw.synth_model import SynthParamsTable  # NOQA: F401
-    from src.utils.signal_processing import process_sample
+    from src.utils.signal_processing import SignalProcessor
 
     db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
     db = db_factory()
 
-    with db.session() as session:
-        query = select(AudioBridgeTable).where()
-        audio_bridges = session.exec(query).all()
+    if reprocess:
+        query = select(AudioBridgeTable)
+    else:
+        query = select(AudioBridgeTable).where(
+            AudioBridgeTable.processed_path.is_(None)
+        )
 
-    for bridge in tqdm(audio_bridges):
-        signal = torch.load(bridge.audio_path).to(PYTORCH_DEVICE)
-        processed = process_sample(signal)
+    finalized_instances = []
 
+    def _save(args) -> AudioBridgeTable:
+        processed, bridge = args
         save_path = REGISTRY.PATH.processed_audio / Path(bridge.audio_path).name
         bridge.processed_path = str(save_path.resolve())
 
         torch.save(processed, save_path)
         REGISTRY.add_blob(save_path)
+        return bridge
 
-    db.add(audio_bridges)
+    with db.session() as session:
+        total_audio_bridges = session.exec(
+            select(func.count()).select_from(query.subquery())
+        ).all()[0]
+
+    for offset in tqdm(range(0, total_audio_bridges, chunk_size), leave=True):
+        with db.session() as session:
+            audio_bridges = session.exec(query.limit(chunk_size).offset(offset)).all()
+
+        signals = [
+            torch.load(bridge.audio_path).to(PYTORCH_DEVICE) for bridge in audio_bridges
+        ]
+
+        processed = SignalProcessor.concurrent_batch_process(
+            signals, num_workers=num_workers
+        )
+
+        with ThreadPool() as p:
+            finalized_instances.extend(p.map(_save, zip(processed, audio_bridges)))
+
+    db.safe_add(finalized_instances)
 
 
 @app.command()

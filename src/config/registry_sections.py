@@ -60,7 +60,7 @@ class FlowSynthSection(BaseModel):
     channels: int = 32
     hidden_dim: int = 512
     ae_base: AEBaseModelEnum = AEBaseModelEnum.VAEFlow
-    ed_layer: EDLayerEnum = EDLayerEnum.gated_mlp
+    ed_layer: EDLayerEnum = EDLayerEnum.gated_mlp  # TODO : cnn
     model: ModelEnum = ModelEnum.RegressionAE
     n_layers: int = 4
     kernel: int = 5
@@ -81,6 +81,7 @@ class FlowSynthSection(BaseModel):
 class TrainMetadataSection(BaseModel):
     epochs: int = 20
     batch_size: int = 64
+    time_limit: Optional[int] = 24 * 60
     loss: LossEnum = LossEnum.mse
     learning_rate: float = 2e-4
     scheduler_mode: SchedulerModeEnum = SchedulerModeEnum.min

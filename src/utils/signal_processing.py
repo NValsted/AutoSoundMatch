@@ -1,4 +1,5 @@
-from functools import partial
+from functools import partial, reduce
+from multiprocessing import Pool
 from typing import Tuple, Union
 
 import numpy as np
@@ -93,11 +94,31 @@ class SignalProcessor:
     def __call__(self, *args, **kwargs) -> torch.Tensor:
         return self.forward(*args, **kwargs)
 
+    @classmethod
+    def batch_process(cls, signals: list[torch.Tensor]) -> list[torch.Tensor]:
+        processor = cls()
+        processed_signals = [processor(signal) for signal in signals]
+        torch.cuda.empty_cache()
+        return processed_signals
 
-def process_sample(signal: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
-    processor = SignalProcessor()  # TODO: only initialize once
-    processed = processor(signal)
-    return processed
+    @classmethod
+    def concurrent_batch_process(
+        cls, signals: list[torch.Tensor], num_workers: int = 4
+    ) -> list[torch.Tensor]:
+
+        chunks = [
+            signals[i : i + num_workers]  # NOQA: E203
+            for i in range(0, len(signals), num_workers)
+        ]
+
+        with Pool(num_workers) as pool:
+            processed_chunks = pool.map(SignalProcessor.batch_process, chunks)
+
+        collected = reduce(lambda x, y: x + y, processed_chunks, [])
+        return collected
+
+
+SIGNAL_PROCESSOR = SignalProcessor()
 
 
 def spectral_convergence(
@@ -107,8 +128,8 @@ def spectral_convergence(
     Computes the spectral convergence of two signals, i.e. the mean magnitude-normalized
     Euclidean norm - Esling, Philippe, et al. (2019).
     """
-    source = process_sample(source)
-    target = process_sample(target)
+    source = SIGNAL_PROCESSOR(source)
+    target = SIGNAL_PROCESSOR(target)
 
     squared_diff = torch.pow(target - source, 2)
     euclidean_norm = torch.sqrt(torch.sum(squared_diff))
@@ -123,8 +144,8 @@ def spectral_mse(
     """
     Computes the mean squared error of two signals.
     """
-    source = process_sample(source)
-    target = process_sample(target)
+    source = SIGNAL_PROCESSOR(source)
+    target = SIGNAL_PROCESSOR(target)
 
     squared_diff = torch.pow(target - source, 2)
     mse = torch.mean(squared_diff)

@@ -13,7 +13,7 @@ from src.config.base import PYTORCH_DEVICE, REGISTRY
 from src.database.base import Database
 from src.daw.audio_model import AudioBridgeTable
 from src.daw.synth_model import SynthParamsTable
-from src.utils.signal_processing import process_sample
+from src.utils.signal_processing import SIGNAL_PROCESSOR
 from src.utils.temporary_context import temporary_attrs
 
 SelectOfScalar.inherit_cache = True
@@ -89,11 +89,13 @@ class FlowSynthDataset(IterableDataset):
                 }
 
                 for audio_bridge in audio_bridges:
-                    if audio_bridge.processed_path is None:
-                        signal = torch.load(audio_bridge.audio_path)
-                        processed_signal = process_sample(signal)
+                    if audio_bridge.processed_path is None:  # TODO : concurrent load
+                        signal = torch.load(audio_bridge.audio_path).to(PYTORCH_DEVICE)
+                        processed_signal = SIGNAL_PROCESSOR(signal)
                     else:
-                        processed_signal = torch.load(audio_bridge.processed_path)
+                        processed_signal = torch.load(audio_bridge.processed_path).to(
+                            PYTORCH_DEVICE
+                        )
 
                     self._cache.append(
                         (
@@ -136,6 +138,6 @@ def load_formatted_audio(audio_path: str) -> Tuple[torch.Tensor, torch.Tensor]:
     else:
         raise ValueError(f"Unsupported file format: {audio_path}")
 
-    processed = process_sample(signal)
+    processed = SIGNAL_PROCESSOR(signal)
     formatted = processed.reshape(1, *processed.shape).contiguous().to(PYTORCH_DEVICE)
     return formatted, signal
