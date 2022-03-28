@@ -1,9 +1,11 @@
 import inspect
 import re
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from os import PathLike
 from typing import BinaryIO, Callable, Optional, Union
 from uuid import UUID, uuid4
+from warnings import warn
 
 import torch
 from torch import load, nn, save
@@ -131,11 +133,13 @@ class ModelWrapper:
         train_loader: DataLoader,
         epochs: int,
         validation_loader: Optional[DataLoader] = None,
+        time_limit: Optional[int] = None,
         *args,
         **kwargs,
     ) -> list[LossTable]:
-        # TODO: Use scheduler
         losses = []
+
+        datetime_start = datetime.utcnow()
 
         for _ in tqdm(range(epochs)):
             self._update_warmup(
@@ -169,7 +173,21 @@ class ModelWrapper:
                 validation_loss = self.evaluate(validation_loader)
                 losses.append(validation_loss)
 
+                if self._accumulated_epochs >= REGISTRY.TRAINMETA.start_regress or (
+                    not isinstance(self.model, ModelEnum.RegressionAE.value)
+                    and not isinstance(self.model, ModelEnum.DisentanglingAE.value)
+                ):
+                    self.scheduler.step(validation_loss.value)
+
             self._accumulated_epochs += 1
+
+            if time_limit is not None:
+                if (datetime.utcnow() - datetime_start) > timedelta(minutes=time_limit):
+                    warn(
+                        f"Time limit reached at {datetime.utcnow()} for model"
+                        f" {self.id}. Stopping training."
+                    )
+                    break
 
         return losses
 

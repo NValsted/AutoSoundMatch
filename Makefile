@@ -16,25 +16,45 @@ endif
 run-image-interactive:
 	docker run --rm -it ${DOCKER_IMAGE}
 
-resources:
+paths:
 	poetry run python asm-cli.py setup-paths \
 		--midi ${MIDI_DIR} \
 		--audio ${AUDIO_DIR} \
 		--model ${MODEL_DIR} \
 		--downloads ${DOWNLOADS_DIR}
-	# wget http://www.cp.jku.at/resources/2019_RLScoFo_TISMIR/data.tar.gz
-	# tar -xzvf data.tar.gz
 
-build-vst:
-	@echo "Building OpnTaybel VST"
-	@echo "NOT YET IMPLEMENTED"
+resources:
+	@if [ ! -d "${DOWNLOADS_DIR}/msmd_real_performances" ]; \
+	then \
+		wget http://www.cp.jku.at/resources/2019_RLScoFo_TISMIR/data.tar.gz -O ${DOWNLOADS_DIR}/RLScoFO_data.tar.gz && \
+		tar -xzf ${DOWNLOADS_DIR}/RLScoFO_data.tar.gz -C ${DOWNLOADS_DIR} && \
+		rm ${DOWNLOADS_DIR}/RLScoFO_data.tar.gz; \
+	else \
+		echo "Resource http://www.cp.jku.at/resources/2019_RLScoFo_TISMIR/data.tar.gz already downloaded."; \
+	fi
+
+	@if [ ! -d "${DOWNLOADS_DIR}/lmd_matched" ]; \
+	then \
+		wget http://hog.ee.columbia.edu/craffel/lmd/lmd_matched.tar.gz -O ${DOWNLOADS_DIR}/lmd_matched.tar.gz && \
+		tar -xzf ${DOWNLOADS_DIR}/lmd_matched.tar.gz -C ${DOWNLOADS_DIR} && \
+		rm ${DOWNLOADS_DIR}/lmd_matched.tar.gz; \
+	else \
+		echo "Resource http://hog.ee.columbia.edu/craffel/lmd/lmd_matched.tar.gz already downloaded."; \
+	fi
+
+clear-resources:
+	rm -r ${DOWNLOADS_DIR}/msmd_all
+	rm -r ${DOWNLOADS_DIR}/msmd_real_performances
+	rm -r ${DOWNLOADS_DIR}/nottingham
+	rm -r ${DOWNLOADS_DIR}/lmd_matched
 
 prepare-data:
 	poetry run python asm-cli.py setup-relational-models \
 		--engine-url "sqlite:///data/local.db" \
 		--synth-path ${SYNTH_PATH}
 	poetry run python asm-cli.py partition-midi-files \
-		--directory data/msmd_real_performances/msmd_all_deadpan/performance
+		--directory ${DOWNLOADS_DIR}/msmd_real_performances/msmd_all_deadpan/performance/ \
+		--directory ${DOWNLOADS_DIR}/lmd_matched/A/A/
 	poetry run python asm-cli.py generate-param-tuples
 	poetry run python asm-cli.py process-audio
 

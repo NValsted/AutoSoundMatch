@@ -156,7 +156,7 @@ class MidiPartition:
     ) -> list["MidiPartition"]:
         partitions = []
 
-        duration = REGISTRY.SYNTH.duration
+        duration = REGISTRY.SYNTH.duration - 1
         tempo = bpm2tempo(REGISTRY.SYNTH.bpm)
         ticks_per_partition = second2tick(duration, file.ticks_per_beat, tempo)
 

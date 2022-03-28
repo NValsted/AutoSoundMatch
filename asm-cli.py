@@ -131,18 +131,33 @@ def partition_midi_files(directory: list[str] = typer.Option([])):
     """
     from pathlib import Path
     from uuid import uuid4
+    from warnings import warn
 
     from mido import MidiFile
+    from tqdm import tqdm
 
     from src.config.base import REGISTRY
     from src.midi.generation import partition_midi
 
     for dir in directory:
-        file_paths = Path(dir).glob("*.mid")
-        midi_files = [MidiFile(path) for path in file_paths]
+        file_paths = Path(dir).rglob("*.mid")
+
+        midi_files = []
+        for i, path in enumerate(file_paths):
+            try:
+                midi_files.append(MidiFile(path))
+            except OSError as e:
+                warn(f"OSError: Could not open {path}: {e}")
+            except ValueError as e:
+                warn(f"ValueError: Could not open {path}: {e}")
+            except Exception as e:
+                warn(f"Could not open {path}: {e}")
+            if i > 500:
+                break
+
         partitioned_files = partition_midi(midi_files)
 
-        for file in partitioned_files:
+        for file in tqdm(partitioned_files):
             save_path = REGISTRY.PATH.midi / f"{str(uuid4())}.mid"
             save_path = save_path.resolve()
             file.save(save_path)
@@ -224,7 +239,7 @@ def generate_param_tuples(
 
     generate_midi()
     midi_paths = list(REGISTRY.PATH.midi.glob("*.mid"))
-    for midi_file_path in tqdm(midi_paths[:10]):
+    for midi_file_path in tqdm(midi_paths):
         for i in range(patches_per_midi):
             synth_host.set_random_patch()
             audio = synth_host.render(midi_file_path)
