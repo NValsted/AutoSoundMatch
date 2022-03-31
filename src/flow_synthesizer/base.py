@@ -211,11 +211,21 @@ class ModelWrapper:
 
         return loss_model
 
+    def embed(self, x: torch.Tensor) -> torch.Tensor:
+        if hasattr(self.model, "ae_model"):
+            with torch.no_grad():
+                _, embedding, _ = self.model.ae_model(x)
+            return embedding
+        else:
+            raise ValueError("Model does not encode to a latent space.")
+
     def __call__(self, x: torch.Tensor, *args, **kwargs):
         return self.model(x)
 
     def save(self, path: Union[str, PathLike, BinaryIO]) -> None:
-        # TODO: save/load ModelWrapper attributes
+        # TODO: save/load ModelWrapper attributes (including trainmeta and flowsynth)
+        # Potentially as DB table containing path to model
+        # Maybe also add logic to handle checkpoints
         save(self.model, path)
 
     @classmethod
