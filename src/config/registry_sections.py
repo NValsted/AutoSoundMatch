@@ -1,6 +1,6 @@
 from enum import Enum, unique
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -41,6 +41,7 @@ class SynthSection(BaseModel):
     buffer_size: int = 128
     bpm: int = 128
     duration: float = 4.0
+    locked_parameters: dict[Union[str, int], float] = {}
 
 
 class DatasetSection(BaseModel):

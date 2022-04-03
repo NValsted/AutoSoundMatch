@@ -45,48 +45,68 @@ def setup_paths(
 
 
 @app.command()
-def register():
-    """
-    Interactive interface to manually register values in the registry.
-    """
-
-    import json
+def update_registry(
+    fixture: str = typer.Option(
+        ...,
+        help=(
+            "Path to fixture file (Optionally append ::{class_name} at end of"
+            " file name to load a specific class)"
+        ),
+    )
+):
+    import re
+    from importlib.util import module_from_spec, spec_from_file_location
+    from pathlib import Path
 
     from src.config.base import REGISTRY
-    from src.config.registry_sections import RegistrySectionsEnum, RegistrySectionsMap
+    from src.config.registry_sections import RegistrySectionsMap
 
-    typer.echo(f"Availble sections: {[e.value for e in RegistrySectionsEnum]}")
+    class AmbiguousConfigError(ValueError):
+        pass
 
-    sections = dict()
+    node_match = re.search(r"::\s*[A-Za-z_]\w*\s*$", fixture)
+    if node_match:
+        node = node_match.group(0).strip()[2:]
+        path = Path(fixture[: node_match.start()]).resolve()
+    else:
+        node = None
+        path = Path(fixture).resolve()
 
-    while (entry := typer.prompt("Entry (leave blank to continue)", default="")) != "":
-        entry = entry.split(" ")
-        if len(entry) == 4:
-            section, key, value, as_json = entry
-        elif len(entry) == 3:
-            section, key, value = entry
-            as_json = False
-        else:
-            typer.echo(f"Invalid entry: {entry}")
-            continue
+    spec = spec_from_file_location(path.name, path.as_posix())
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
 
-        if section not in RegistrySectionsEnum.__members__:
-            typer.echo(f"Invalid section: {section}")
-            continue
+    if node is not None:
+        if not hasattr(module, node):
+            raise ValueError(f"No config class named {node} found in {path}")
 
-        if as_json:
-            value = json.loads(value)
-        sections[section] = sections.get(section, dict())
-        sections[section][key] = value
+        section_config = getattr(module, node)
+        section_name = REGISTRY.classify_section(section_config)
+        setattr(REGISTRY, section_name, section_config)
 
-    typer.echo("Staged changes:")
-    for section, section_dict in sections.items():
-        typer.echo(f"{section}: {section_dict}")
-    typer.confirm("Are you sure you want to register these values?", abort=True)
+    else:
+        section_matches = {k: [] for k in RegistrySectionsMap.keys()}
+        for attr in dir(module):
+            if attr.startswith("_"):
+                continue
+            section_config = getattr(module, attr)
 
-    for k, v in sections.items():
-        sectionModel = RegistrySectionsMap[k](**v)
-        REGISTRY.__setattr__(k, sectionModel)
+            try:
+                section_name = REGISTRY.classify_section(section_config)
+            except ValueError:
+                continue
+
+            section_matches[section_name].append(section_config)
+            if len(section_matches[section_name]) > 1:
+                raise AmbiguousConfigError(
+                    f"Multiple {section_name} sections found in {path} - Resolve"
+                    " ambiguity by separating into multiple files or using"
+                    " ::{class_name} at end of file to specify a specific class"
+                )
+
+        for section_name, section_config in section_matches.items():
+            if len(section_config) == 1:
+                setattr(REGISTRY, section_name, section_config[0])
 
     REGISTRY.commit()
 
@@ -188,13 +208,7 @@ def setup_relational_models(
     db_factory = DBFactory(**db_factory_kwargs)
 
     REGISTRY.SYNTH = SynthSection(synth_path=Path(synth_path))
-    sh_factory = SynthHostFactory(
-        synth_path=REGISTRY.SYNTH.synth_path,
-        sample_rate=REGISTRY.SYNTH.sample_rate,
-        buffer_size=REGISTRY.SYNTH.buffer_size,
-        duration=REGISTRY.SYNTH.duration,
-        bpm=REGISTRY.SYNTH.bpm,
-    )
+    sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
 
     synth_host = sh_factory()
     definition_path = synth_host.create_parameter_table()
@@ -368,9 +382,12 @@ def process_audio(
             torch.load(bridge.audio_path).to(PYTORCH_DEVICE) for bridge in audio_bridges
         ]
 
-        processed = SignalProcessor.concurrent_batch_process(
-            signals, num_workers=num_workers
-        )
+        if PYTORCH_DEVICE.type == "cpu":
+            processed = SignalProcessor.concurrent_batch_process(
+                signals, num_workers=num_workers
+            )
+        else:
+            processed = SignalProcessor.batch_process(signals)
 
         with ThreadPool() as p:
             finalized_instances.extend(p.map(_save, zip(processed, audio_bridges)))

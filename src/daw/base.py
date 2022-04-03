@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 class SynthHost:
     engine: RenderEngine
     synth: PluginProcessor
+    locked_parameters: dict[int, float]
     _synth_model_path: Path = (
         REGISTRY.PATH.project_root / "src" / "daw" / "synth_model.py"
     )
@@ -74,6 +75,16 @@ class SynthHost:
         else:
             return SynthParams(**attributes)
 
+    def _enforce_locked_parameters(
+        self, patch: list[Union[float, tuple[int, float]]]
+    ) -> list[Union[float, tuple[int, float]]]:
+        for param_idx, value in self.locked_parameters.items():
+            if isinstance(patch[param_idx], tuple):
+                patch[param_idx] = (patch[param_idx][0], value)
+            else:
+                patch[param_idx] = value
+        return patch
+
     def load_preset(self, patch_path: Path) -> list[float]:
         self.synth.load_preset(str(patch_path))
         patch = [
@@ -83,6 +94,7 @@ class SynthHost:
                 key=lambda x: x["index"],
             )
         ]
+        patch = self._enforce_locked_parameters(patch)
         return patch
 
     def set_patch(self, patch: list[float]) -> None:
@@ -100,19 +112,21 @@ class SynthHost:
         if not all(isinstance(param, float) for param in patch):
             raise ValueError("Patch must be a list of floats")
 
-        finalized_patch = [
-            (param["index"], patch[i]) for i, param in enumerate(plugin_parameters)
-        ]
+        finalized_patch = self._enforce_locked_parameters(
+            [(param["index"], patch[i]) for i, param in enumerate(plugin_parameters)]
+        )
         self.synth.set_patch(finalized_patch)
 
     def random_patch(self, apply: bool = False) -> list[tuple[int, float]]:
         """
         Generate random parameters for the synth.
         """
-        patch = [
-            (param["index"], uniform(0, 1).rvs())
-            for param in self.synth.get_plugin_parameters_description()
-        ]
+        patch = self._enforce_locked_parameters(
+            [
+                (param["index"], uniform(0, 1).rvs())
+                for param in self.synth.get_plugin_parameters_description()
+            ]
+        )
         if apply:
             self.synth.set_patch(patch)
         return patch

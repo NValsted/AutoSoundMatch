@@ -7,7 +7,7 @@ from sqlmodel import Field, SQLModel
 class AudioBridge(SQLModel):
     audio_path: str = Field(primary_key=True)
     processed_path: Optional[str] = Field()
-    midi_path: str = Field(primary_key=True)
+    midi_path: str = Field()
     synth_params: str = Field(foreign_key="SynthParams.id", index=True, nullable=True)
     test_flag: bool = Field(default=False)
 

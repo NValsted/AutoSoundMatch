@@ -12,6 +12,7 @@ from src.config.registry_sections import (
     DatasetSection,
     FlowSynthSection,
     PathSection,
+    RegistrySectionsMap,
     SynthSection,
     TrainMetadataSection,
 )
@@ -65,6 +66,13 @@ class Registry(BaseModel):
                     warn(f"Attempted to remove {blob_ref}, but it does not exist")
         with open(_BLOB_REFERENCE_FILE, "w") as f:
             f.write("")
+
+    @staticmethod
+    def classify_section(section: BaseModel) -> str:
+        for name, registry_section in RegistrySectionsMap.items():
+            if isinstance(section, registry_section):
+                return name
+        raise ValueError(f"Invalid section {section}")
 
 
 for file in [_REGISTRY_CONFIG_FILE, _BLOB_REFERENCE_FILE]:
