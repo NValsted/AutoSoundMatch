@@ -46,7 +46,7 @@ def setup_paths(
 
 @app.command()
 def update_registry(
-    fixture: str = typer.Option(
+    fixture: str = typer.Argument(
         ...,
         help=(
             "Path to fixture file (Optionally append ::{class_name} at end of"
@@ -160,7 +160,7 @@ def partition_midi_files(directory: list[str] = typer.Option([])):
     from tqdm import tqdm
 
     from src.config.base import REGISTRY
-    from src.midi.generation import partition_midi
+    from src.midi.partition import MidiProperties, partition_midi
 
     for dir in directory:
         file_paths = Path(dir).rglob("*.mid")
@@ -178,7 +178,13 @@ def partition_midi_files(directory: list[str] = typer.Option([])):
             if i > 500:
                 break
 
-        partitioned_files = partition_midi(midi_files)
+        if len(midi_files) == 0:
+            warn(f"No midi files found in directory {dir}")
+            continue
+
+        partitioned_files = partition_midi(
+            midi_files, properties=MidiProperties(max_silence_ratio=0.4, max_voices=8)
+        )
 
         for file in tqdm(partitioned_files):
             save_path = REGISTRY.PATH.midi / f"{str(uuid4())}.mid"
