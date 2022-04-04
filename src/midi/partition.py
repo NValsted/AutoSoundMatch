@@ -92,7 +92,7 @@ class MidiPartition:
             if message.type == "note_on":
                 break
         else:
-            return
+            return None
 
         track = MidiTrack()
         track.extend(self._messages)
@@ -167,7 +167,7 @@ class MidiPartition:
                     ):
                         raise UnconformingPartitionError
 
-                    elif (
+                    if (
                         properties.max_voices is not None
                         and num_voices > properties.max_voices
                     ):

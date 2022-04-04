@@ -27,7 +27,7 @@ def _get_embeddings(model: ModelWrapper, max_datapoints: int) -> np.ndarray:
     ]
 
     embeddings = np.array(
-        [model.embed(entry)[0].numpy() for entry in tqdm(processed_signals)]
+        [model.embed(entry)[0].cpu().numpy() for entry in tqdm(processed_signals)]
     )
     return embeddings
 

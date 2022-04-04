@@ -1,23 +1,30 @@
 import inspect
-import re
+import pickle
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from os import PathLike
-from typing import BinaryIO, Callable, Optional, Union
+from pathlib import Path
+from typing import Callable, Optional
 from uuid import UUID, uuid4
 from warnings import warn
 
 import torch
-from torch import load, nn, save
+from sqlalchemy.exc import IntegrityError
+from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.config.base import PYTORCH_DEVICE, REGISTRY
+from src.database.factory import DBFactory
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.loss import (
     multinomial_loss,
     multinomial_mse_loss,
+)
+from src.flow_synthesizer.checkpoint import (
+    FlowSynthParamsTable,
+    ModelCheckpointTable,
+    TrainMetadataParamsTable,
 )
 from src.flow_synthesizer.enums import LossEnum, ModelEnum, SchedulerModeEnum
 from src.utils.loss_model import LossTable, TrainValTestEnum
@@ -134,6 +141,7 @@ class ModelWrapper:
         epochs: int,
         validation_loader: Optional[DataLoader] = None,
         time_limit: Optional[int] = None,
+        cp_callback: Optional[Callable[["ModelWrapper", list[LossTable]], None]] = None,
         *args,
         **kwargs,
     ) -> list[LossTable]:
@@ -171,6 +179,7 @@ class ModelWrapper:
 
             if validation_loader is not None:
                 validation_loss = self.evaluate(validation_loader)
+
                 losses.append(validation_loss)
 
                 if self._accumulated_epochs >= REGISTRY.TRAINMETA.start_regress or (
@@ -178,6 +187,9 @@ class ModelWrapper:
                     and not isinstance(self.model, ModelEnum.DisentanglingAE.value)
                 ):
                     self.scheduler.step(validation_loss.value)
+
+            if cp_callback is not None:
+                cp_callback(self, losses)
 
             self._accumulated_epochs += 1
 
@@ -222,20 +234,89 @@ class ModelWrapper:
     def __call__(self, x: torch.Tensor, *args, **kwargs):
         return self.model(x)
 
-    def save(self, path: Union[str, PathLike, BinaryIO]) -> None:
-        # TODO: save/load ModelWrapper attributes (including trainmeta and flowsynth)
-        # Potentially as DB table containing path to model
-        # Maybe also add logic to handle checkpoints
-        save(self.model, path)
+    def _make_checkpoint(
+        self, losses: list[LossTable], path: Optional[Path] = None
+    ) -> Path:
+        validation_losses = [
+            loss
+            for loss in losses
+            if loss.train_val_test == TrainValTestEnum.VALIDATION
+        ]
+        if len(validation_losses) > 0:
+            latest_val_loss = validation_losses[-1].value
+        else:
+            latest_val_loss = None
 
-    @classmethod
-    def load(cls, path: Union[str, PathLike, BinaryIO]) -> None:
-        _loaded_model = load(path)
-        wrapped = cls(model=_loaded_model)
+        if path is None:
+            cp_path = (
+                REGISTRY.PATH.model
+                / f"model-{self.id}_cp-{self._accumulated_epochs}.pkl"
+            ).resolve()
+        else:
+            cp_path = path.resolve()
 
-        matched_uuid = re.search(
-            r"[\da-f]{8}\b-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-\b[\da-f]{12}", str(path)
-        )  # TODO: save/load ModelWrapper attributes instead
-        wrapped.id = matched_uuid.group(0) if matched_uuid is not None else None
+        flow_synth_params = FlowSynthParamsTable.from_registry_section(
+            REGISTRY.FLOWSYNTH
+        )
+        train_metadata_params = TrainMetadataParamsTable.from_registry_section(
+            REGISTRY.TRAINMETA
+        )
 
-        return wrapped
+        model_checkpoint_meta = ModelCheckpointTable(
+            model_id=str(self.id),
+            checkpoint_path=str(cp_path),
+            accumulated_epochs=self._accumulated_epochs,
+            val_loss=latest_val_loss,
+            flow_synth_params=flow_synth_params.id,
+            train_metadata_params=train_metadata_params.id,
+        )
+
+        with cp_path.open("wb") as f:
+            pickle.dump(self, f)
+        REGISTRY.add_blob(cp_path)
+
+        db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
+        db = db_factory()
+
+        for entry in [flow_synth_params, train_metadata_params]:
+            try:
+                db.safe_add([entry])
+            except IntegrityError:
+                pass  # warn(str(e))
+        db.safe_add([model_checkpoint_meta])
+
+        return cp_path
+
+    @staticmethod
+    def default_cp_callback(model: "ModelWrapper", losses: list[LossTable]) -> None:
+        """
+        Default checkpoint behaviour which saves model when validation loss is lowest.
+        """
+        validation_losses = [
+            loss
+            for loss in losses
+            if loss.train_val_test == TrainValTestEnum.VALIDATION
+        ]
+        previous_losses, latest_loss = validation_losses[:-1], validation_losses[-1]
+
+        if len(previous_losses) > 0:  # and model._accumulated_epochs % 10 == 0:
+            min_val_loss = min(previous_losses, key=lambda x: x.value)
+            print("MAKING CHECKPOINT", min_val_loss, latest_loss)
+            if latest_loss.value < min_val_loss.value:
+                model._make_checkpoint(losses)
+
+    def save(self, path: Path) -> None:
+        self._make_checkpoint([], path)
+
+    @staticmethod
+    def load(path: Path) -> "ModelWrapper":
+        with path.open("rb") as f:
+            model = pickle.load(f)
+
+        if not isinstance(model, ModelWrapper):
+            raise ValueError(
+                f"Object at path {path} was expected to be a ModelWrapper object, but"
+                f" got {type(model)}"
+            )
+
+        return model

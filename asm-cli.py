@@ -225,6 +225,11 @@ def setup_relational_models(
 
     from src.daw.audio_model import AudioBridgeTable  # NOQA: F401
     from src.daw.synth_model import SynthParamsTable  # NOQA: F401
+    from src.flow_synthesizer.checkpoint import (  # NOQA: F401
+        FlowSynthParamsTable,
+        ModelCheckpointTable,
+        TrainMetadataParamsTable,
+    )
     from src.utils.loss_model import LossTable  # NOQA: F401
 
     db = db_factory()
@@ -272,7 +277,7 @@ def generate_param_triples(
 
     if len(midi_paths) < num_midi:
         typer.echo(f"Generating {num_midi - len(midi_paths)} additional midi files")
-        generate_midi(midi_paths, number_of_files=num_midi - len(midi_paths))
+        generate_midi(number_of_files=num_midi - len(midi_paths))
         midi_paths = list(REGISTRY.PATH.midi.glob("*.mid"))
 
     preset_paths = list(REGISTRY.PATH.presets.glob("*.fxp"))
@@ -450,7 +455,6 @@ def train_model(validation_split: Optional[float] = typer.Option(0.15)):
 
     typer.echo(f"Saving model to {save_path}")
     model.save(save_path)
-    REGISTRY.add_blob(save_path)
     REGISTRY.FLOWSYNTH.active_model_path = save_path
     REGISTRY.commit()
 

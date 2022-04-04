@@ -85,16 +85,18 @@ def inference_comparison(
         )
 
     fig.add_trace(
-        go.Heatmap(z=formatted_signal.reshape(*(formatted_signal.shape[1:])).numpy()),
+        go.Heatmap(
+            z=formatted_signal.reshape(*(formatted_signal.shape[1:])).cpu().numpy()
+        ),
         row=2,
         col=1,
     )
-    fig.add_trace(go.Heatmap(z=processed_inferred_audio.numpy()), row=2, col=2)
+    fig.add_trace(go.Heatmap(z=processed_inferred_audio.cpu().numpy()), row=2, col=2)
 
     fig.add_trace(
         go.Scatter(
             x=signal_x_axis,
-            y=stereo_to_mono(target_signal).numpy(),
+            y=stereo_to_mono(target_signal).cpu().numpy(),
             line=dict(color="rgb(123,17,58)", width=1),
         ),
         row=3,
@@ -103,7 +105,7 @@ def inference_comparison(
     fig.add_trace(
         go.Scatter(
             x=signal_x_axis,
-            y=stereo_to_mono(inferred_audio).numpy(),
+            y=stereo_to_mono(inferred_audio).cpu().numpy(),
             line=dict(color="rgb(21,14,86)", width=1),
         ),
         row=3,
