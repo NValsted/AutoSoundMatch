@@ -147,6 +147,23 @@ def reset():
 
 
 @app.command()
+def mono_setup():
+    """
+    Sets up particular project elements for the mono benchmark setting.
+    """
+    from uuid import uuid4
+
+    from src.config.base import REGISTRY
+    from src.midi.generation import mono_midi
+
+    file = mono_midi()
+    save_path = REGISTRY.PATH.midi / f"{str(uuid4())}.mid"
+    save_path = save_path.resolve()
+    file.save(save_path)
+    REGISTRY.add_blob(save_path)
+
+
+@app.command()
 def partition_midi_files(directory: list[str] = typer.Option([])):
     """
     Takes a list of directories containing midi files and partitions them into
@@ -195,7 +212,8 @@ def partition_midi_files(directory: list[str] = typer.Option([])):
 
 @app.command()
 def setup_relational_models(
-    synth_path: str = typer.Option(...), engine_url: Optional[str] = typer.Option(None)
+    synth_path: Optional[str] = typer.Option(None),
+    engine_url: Optional[str] = typer.Option(None),
 ):
     """
     Create tables in a local database for storing audio files and VST
@@ -213,7 +231,20 @@ def setup_relational_models(
         db_factory_kwargs["engine_url"] = engine_url
     db_factory = DBFactory(**db_factory_kwargs)
 
-    REGISTRY.SYNTH = SynthSection(synth_path=Path(synth_path))
+    if synth_path is not None:
+        if REGISTRY.SYNTH is not None:
+            REGISTRY.SYNTH = SynthSection(
+                synth_path=Path(synth_path),
+                sample_rate=REGISTRY.SYNTH.sample_rate,
+                buffer_size=REGISTRY.SYNTH.buffer_size,
+                bpm=REGISTRY.SYNTH.bpm,
+                duration=REGISTRY.SYNTH.duration,
+            )
+        else:
+            REGISTRY.SYNTH = SynthSection(synth_path=Path(synth_path))
+    elif REGISTRY.SYNTH is None:
+        raise ValueError("No synth path specified and no SYNTH found in registry")
+
     sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
 
     synth_host = sh_factory()
@@ -223,6 +254,7 @@ def setup_relational_models(
         f" {definition_path}"
     )
 
+    from src.database.dataset import DatasetParamsTable  # NOQA: F401
     from src.daw.audio_model import AudioBridgeTable  # NOQA: F401
     from src.daw.synth_model import SynthParamsTable  # NOQA: F401
     from src.flow_synthesizer.checkpoint import (  # NOQA: F401
@@ -256,6 +288,7 @@ def generate_param_triples(
     from tqdm import tqdm
 
     from src.config.base import REGISTRY
+    from src.config.registry_sections import DatasetSection
     from src.database.factory import DBFactory
     from src.daw.audio_model import AudioBridgeTable
     from src.daw.factory import SynthHostFactory
@@ -263,6 +296,16 @@ def generate_param_triples(
 
     sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
     db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
+    if REGISTRY.DATASET is not None:
+        REGISTRY.DATASET.num_presets += num_presets
+        REGISTRY.DATASET.num_midi += num_midi
+        REGISTRY.DATASET.pairs = (
+            REGISTRY.DATASET.pairs * REGISTRY.DATASET.num_presets + pairs * num_presets
+        ) / (REGISTRY.DATASET.num_presets + num_presets)
+    else:
+        REGISTRY.DATASET = DatasetSection(
+            num_presets=num_presets, num_midi=num_midi, pairs=pairs
+        )
 
     synth_host = sh_factory()
     db = db_factory()
@@ -337,6 +380,8 @@ def generate_param_triples(
             )
 
             db.safe_add([audio_bridge])
+
+    REGISTRY.commit()
 
 
 @app.command()

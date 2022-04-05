@@ -2,7 +2,7 @@ import random
 from pathlib import Path
 from typing import Optional, Union
 
-from mido import MidiFile
+from mido import MidiFile, bpm2tempo, second2tick
 from scipy.stats import randint, truncnorm
 from tqdm import tqdm
 
@@ -59,3 +59,22 @@ def generate_midi(
         save_path = save_path.resolve()
         file.save(save_path)
         REGISTRY.add_blob(save_path)
+
+
+def mono_midi(note: int = 60) -> MidiFile:
+    """
+    Generate a MIDI partition with a single MIDI note.
+    """
+    file = MidiFile(type=0)
+
+    duration = REGISTRY.SYNTH.duration - 1
+    tempo = bpm2tempo(REGISTRY.SYNTH.bpm)
+    ticks_per_partition = second2tick(duration, file.ticks_per_beat, tempo)
+
+    midi_note = ASMMidiNote(
+        note=note, velocity=100, length=ticks_per_partition, offset=0
+    )
+    track = ASMMidiTrack.from_notes([midi_note])
+    file.tracks.append(track)
+
+    return file

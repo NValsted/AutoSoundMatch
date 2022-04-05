@@ -45,8 +45,9 @@ class SynthSection(BaseModel):
 
 
 class DatasetSection(BaseModel):
-    in_dim: list[int]
-    out_dim: int
+    num_presets: int
+    num_midi: int
+    pairs: int
 
 
 class FlowSynthSection(BaseModel):
@@ -58,20 +59,20 @@ class FlowSynthSection(BaseModel):
     """
 
     encoding_dim: int = 64
-    latent_dim: int = 8
-    channels: int = 32
-    hidden_dim: int = 512
+    latent_dim: int = 32
+    channels: int = 128
+    hidden_dim: int = 2048
     ae_base: AEBaseModelEnum = AEBaseModelEnum.VAEFlow
-    ed_layer: EDLayerEnum = EDLayerEnum.gated_mlp  # TODO : cnn
+    ed_layer: EDLayerEnum = EDLayerEnum.cnn
     model: ModelEnum = ModelEnum.RegressionAE
     n_layers: int = 4
-    kernel: int = 5
+    kernel: int = 7
     dilation: int = 3
     flow_type: Optional[FlowTypeEnum] = FlowTypeEnum.iaf  # TODO: Group parameters
     flow_length: Optional[int] = 16
     regressor: Optional[RegressorEnum] = RegressorEnum.mlp
-    regressor_flow_type: Optional[FlowTypeEnum] = FlowTypeEnum.maf
-    regressor_hidden_dim: Optional[int] = 256
+    regressor_flow_type: Optional[FlowTypeEnum] = FlowTypeEnum.iaf
+    regressor_hidden_dim: Optional[int] = 1024
     regressor_layers: Optional[int] = 3
     reconstruction_loss: Optional[LossEnum] = LossEnum.mse
     disentangling_model: Optional[DisentanglingModelEnum] = None
@@ -81,6 +82,8 @@ class FlowSynthSection(BaseModel):
 
 
 class TrainMetadataSection(BaseModel):
+    in_dim: list[int]
+    out_dim: int
     epochs: int = 20
     batch_size: int = 64
     time_limit: Optional[int] = 24 * 60

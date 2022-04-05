@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.config.base import PYTORCH_DEVICE, REGISTRY
+from src.database.dataset import DatasetParamsTable
 from src.database.factory import DBFactory
 from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.loss import (
     multinomial_loss,
@@ -261,6 +262,7 @@ class ModelWrapper:
         train_metadata_params = TrainMetadataParamsTable.from_registry_section(
             REGISTRY.TRAINMETA
         )
+        dataset_params = DatasetParamsTable.from_registry_section(REGISTRY.DATASET)
 
         model_checkpoint_meta = ModelCheckpointTable(
             model_id=str(self.id),
@@ -269,6 +271,7 @@ class ModelWrapper:
             val_loss=latest_val_loss,
             flow_synth_params=flow_synth_params.id,
             train_metadata_params=train_metadata_params.id,
+            dataset_params=dataset_params.id,
         )
 
         with cp_path.open("wb") as f:
@@ -278,7 +281,7 @@ class ModelWrapper:
         db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
         db = db_factory()
 
-        for entry in [flow_synth_params, train_metadata_params]:
+        for entry in [flow_synth_params, train_metadata_params, dataset_params]:
             try:
                 db.safe_add([entry])
             except IntegrityError:

@@ -27,6 +27,15 @@ def sanitize_attribute(attribute: str) -> str:
         "<": "_lt_",
         ">": "_gt_",
         "/": "_slash_",
+        ":": "_colon_",
+        ";": "_semicolon_",
+        "=": "_eq_",
+        r"\*": "_star_",
+        "&": "_amp_",
+        r"\|": "_pipe_",
+        "!": "_excl_",
+        '"': "_quote_",
+        "#": "_hash_",
         r"\b\d": "_num_",
     }
 

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Optional
 
 import torch
@@ -6,11 +5,7 @@ from scipy.io import wavfile
 from tqdm import tqdm
 
 from src.config.base import REGISTRY
-from src.config.registry_sections import (
-    DatasetSection,
-    FlowSynthSection,
-    TrainMetadataSection,
-)
+from src.config.registry_sections import FlowSynthSection, TrainMetadataSection
 from src.database.dataset import FlowSynthDataset, load_formatted_audio
 from src.daw.audio_model import AudioBridgeTable
 from src.daw.factory import SynthHostFactory
@@ -20,37 +15,15 @@ from src.utils.loss_model import LossTable, TrainValTestEnum
 from src.utils.signal_processing import spectral_convergence, spectral_mse
 
 
-@dataclass
-class ModelSuite:  # TODO : Ensure each model is only loaded into memory when needed
-    MLP: ModelWrapper
-    CNN: ModelWrapper
-    ResNet: ModelWrapper
-    AE: ModelWrapper
-    VAE: ModelWrapper
-    WAE: ModelWrapper
-    VAE_flow: ModelWrapper
-    Flow_reg: ModelWrapper
-    Flow_dis: lambda: NotImplementedError
-
-    def __post_init__(self):
-        # TODO : remember to remove when implementing get_model_suite
-        raise NotImplementedError
-
-
-def prepare_registry(
-    dataset: Optional[FlowSynthDataset] = None, commit: bool = False
-) -> None:
+def prepare_registry(dataset: FlowSynthDataset, commit: bool = False) -> None:
     """
     Prepare the registry with default values for the model training and evaluation.
     """
-    if dataset is not None:
-        REGISTRY.DATASET = DatasetSection(
+    if REGISTRY.TRAINMETA is None:
+        REGISTRY.TRAINMETA = TrainMetadataSection(
             in_dim=dataset.in_dim,
             out_dim=dataset.out_dim,
         )
-
-    if REGISTRY.TRAINMETA is None:
-        REGISTRY.TRAINMETA = TrainMetadataSection()
 
     if REGISTRY.FLOWSYNTH is None:
         REGISTRY.FLOWSYNTH = FlowSynthSection()
@@ -73,10 +46,8 @@ def get_model(
         in_dim = dataset.in_dim
         out_dim = dataset.out_dim
     else:
-        if REGISTRY.DATASET is None:
-            raise ValueError("REGISTRY.DATASET section is not set.")
-        in_dim = REGISTRY.DATASET.in_dim
-        out_dim = REGISTRY.DATASET.out_dim
+        in_dim = REGISTRY.TRAINMETA.in_dim
+        out_dim = REGISTRY.TRAINMETA.out_dim
 
     model_factory = ModelFactory(
         in_dim=in_dim,
@@ -106,20 +77,18 @@ def get_model(
     return model
 
 
-def get_model_suite():
-    raise NotImplementedError
-
-
 def evaluate_inference(
     model: ModelWrapper,
     audio_bridges: list[AudioBridgeTable],
     write_audio: bool = False,
+    monophonic: bool = False,
 ) -> list[LossTable]:
-    # TODO: add possibility to evaluate based on different midi files
-
     sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
 
     losses = []
+
+    if monophonic:
+        raise NotImplementedError
 
     for bridge in tqdm(audio_bridges):
         formatted_signal, target_signal = load_formatted_audio(bridge.audio_path)

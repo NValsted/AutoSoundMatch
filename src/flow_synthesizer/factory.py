@@ -148,7 +148,7 @@ class ModelFactory:
             n_layers=4,  # TODO : static in train.py but might parametrize here
             hidden_size=self.hidden_dim,
             n_mlp=3,  # TODO : static in train.py but might parametrize here,
-            args=AttributeWrapper(
+            args=AttributeWrapper(  # TODO : dropout is also static
                 kernel=self.kernel,
                 dilation=self.dilation,
             ),
@@ -157,7 +157,7 @@ class ModelFactory:
     def _encoder_decoder(
         self,
     ) -> tuple[Union[GatedMLP, GatedCNN], Union[DecodeMLP, DecodeCNN]]:
-        return construct_encoder_decoder(
+        encoder, decoder = construct_encoder_decoder(
             in_size=self.in_dim,
             enc_size=self.encoding_dim,
             latent_size=self.latent_dim,
@@ -171,6 +171,20 @@ class ModelFactory:
                 dilation=self.dilation,
             ),
         )
+        if isinstance(decoder, DecodeCNN):
+            last_layer = decoder.net[-1]
+            constructor = type(last_layer)
+            decoder.net[-1] = constructor(
+                last_layer.in_channels,
+                1,
+                last_layer.kernel_size,
+                last_layer.stride,
+                last_layer.padding,
+                output_padding=last_layer.output_padding,
+                dilation=last_layer.dilation,
+            )
+
+        return encoder, decoder
 
     def _flow(self) -> NormalizingFlow:
         if self.flow_type is None:

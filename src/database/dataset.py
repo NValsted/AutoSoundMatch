@@ -1,18 +1,21 @@
 import re
 from dataclasses import dataclass, field
-from typing import Tuple
+from datetime import datetime
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
 import torchaudio
-from sqlmodel import select
+from sqlmodel import Field, SQLModel, select
 from sqlmodel.sql.expression import SelectOfScalar
 from torch.utils.data import IterableDataset
 
 from src.config.base import PYTORCH_DEVICE, REGISTRY
+from src.config.registry_sections import DatasetSection
 from src.database.base import Database
 from src.daw.audio_model import AudioBridgeTable
 from src.daw.synth_model import SynthParamsTable
+from src.utils.meta import hash_field_to_uuid
 from src.utils.signal_processing import SIGNAL_PROCESSOR
 from src.utils.temporary_context import temporary_attrs
 
@@ -141,3 +144,28 @@ def load_formatted_audio(audio_path: str) -> Tuple[torch.Tensor, torch.Tensor]:
     processed = SIGNAL_PROCESSOR(signal)
     formatted = processed.reshape(1, *processed.shape).contiguous().to(PYTORCH_DEVICE)
     return formatted, signal
+
+
+class DatasetParamsTable(SQLModel, table=True):
+    __tablename__ = "DatasetParams"
+
+    id: Optional[str] = Field(primary_key=True, default=None)
+    num_presets: int = Field()
+    num_midi: int = Field()
+    pairs: int = Field()
+    time: datetime = Field(primary_key=True, default_factory=datetime.utcnow)
+
+    class Config:
+        validate_all = True
+
+    _auto_uuid = hash_field_to_uuid("id")
+
+    @classmethod
+    def from_registry_section(
+        cls, dataset_section: DatasetSection
+    ) -> "DatasetParamsTable":
+        return cls(
+            num_presets=dataset_section.num_presets,
+            num_midi=dataset_section.num_midi,
+            pairs=dataset_section.pairs,
+        )

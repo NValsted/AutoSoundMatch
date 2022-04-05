@@ -123,4 +123,5 @@ class ModelCheckpointTable(SQLModel, table=True):
     val_loss: Optional[float] = Field()
     flow_synth_params: Optional[str] = Field(foreign_key="FlowSynthParams.id")
     train_metadata_params: Optional[str] = Field(foreign_key="TrainMetadataParams.id")
+    dataset_params: Optional[str] = Field(foreign_key="DatasetParams.id")
     time: datetime = Field(primary_key=True, default_factory=datetime.utcnow)
