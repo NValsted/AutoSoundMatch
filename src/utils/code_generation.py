@@ -39,6 +39,13 @@ def sanitize_attribute(attribute: str) -> str:
         r"\b\d": "_num_",
     }
 
+    if attribute == "-":
+        attribute = "hyphen_"
+    if attribute == "_":
+        attribute = "underscore_"
+    if len(attribute) == 0 or attribute[0].isdigit():
+        attribute = "underscore_" + attribute
+
     for char, replacement in char_map.items():
         attribute = sub(char, replacement, attribute)
 

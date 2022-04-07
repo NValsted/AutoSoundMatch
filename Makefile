@@ -4,10 +4,10 @@ MODEL_DIR ?= data/model
 DOWNLOADS_DIR ?= data/downloads
 
 PRESETS_DIR ?= data/presets
-SYNTH_PATH ?= data/synth/MikaMicro64.dll
+SYNTH_PATH ?= data/synth/TAL-NoiseMaker.vst3
 
 # Benchmarks
-TARGET_SYNTH ?= mikamicro
+TARGET_SYNTH ?= noisemaker
 PARAM_LIMIT ?= 32
 
 DOCKER_IMAGE ?= nvalsted/autosoundmatch:latest
@@ -49,11 +49,40 @@ resources:
 		echo "Resource http://hog.ee.columbia.edu/craffel/lmd/lmd_matched.tar.gz already downloaded."; \
 	fi
 
+ifeq ($(OS),Windows_NT)
+	@if [ ! -f "${SYNTH_PATH}" ]; \
+	then \
+		wget https://tal-software.com//downloads/plugins/install_tal-noisemaker.zip -O ${DOWNLOADS_DIR}/install_tal-noisemaker.zip && \
+		unzip ${DOWNLOADS_DIR}/install_tal-noisemaker.zip "TAL-NoiseMaker.vst3/**/*" -d ${DOWNLOADS_DIR} && \
+		mv ${DOWNLOADS_DIR}/TAL-NoiseMaker.vst3/Contents/x86_64-win/TAL-NoiseMaker.vst3 ${SYNTH_PATH} && \
+		rm ${DOWNLOADS_DIR}/install_tal-noisemaker.zip && \
+		rm -r ${DOWNLOADS_DIR}/TAL-NoiseMaker.vst3; \
+	else \
+		echo "Synth already installed."; \
+	fi
+else ifeq ($(OS),Darwin)
+	@echo "Not implemented - synth can be manually downloaded from https://tal-software.com//downloads/plugins/tal-noisemaker-installer.pkg"
+else
+	@echo "Not implemented - synth can be manually downloaded from https://tal-software.com/downloads/plugins/TAL-NoiseMaker_64_linux.zip"
+endif
+
+	@if ls ${PRESETS_DIR}/*TAL.vstpreset > /dev/null 2>&1; \
+	then \
+		echo "Presets already installed."; \
+	else \
+		wget https://tal-software.com//downloads/presets/TAL-NoiseMaker%20vst3.zip -O ${DOWNLOADS_DIR}/TAL-NoiseMaker%20vst3.zip && \
+		unzip ${DOWNLOADS_DIR}/TAL-NoiseMaker%20vst3.zip "*.vstpreset" -d ${PRESETS_DIR} &&  \
+		rm ${DOWNLOADS_DIR}/TAL-NoiseMaker%20vst3.zip; \
+	fi
+
+
 clear-resources:
 	rm -r ${DOWNLOADS_DIR}/msmd_all
 	rm -r ${DOWNLOADS_DIR}/msmd_real_performances
 	rm -r ${DOWNLOADS_DIR}/nottingham
 	rm -r ${DOWNLOADS_DIR}/lmd_matched
+	rm ${SYNTH_PATH}
+	rm ${PRESETS_DIR}/*TAL.vstpreset ${PRESETS_DIR}/*FN.vstpreset ${PRESETS_DIR}/*AS.vstpreset ${PRESETS_DIR}/*TUC.vstpreset ${PRESETS_DIR}/*FM.vstpreset
 
 tables:
 	poetry run python asm-cli.py setup-relational-models \
@@ -113,6 +142,12 @@ else ifeq (${TARGET_SYNTH},mikamicro)
 	poetry run python asm-cli.py update-registry \
 		src/config/fixtures/mikamicro${PARAM_LIMIT}.py
 
+else ifeq (${TARGET_SYNTH},noisemaker)
+	poetry run python asm-cli.py update-registry \
+		src/config/fixtures/noisemaker.py
+	poetry run python asm-cli.py update-registry \
+		src/config/fixtures/noisemaker${PARAM_LIMIT}.py
+
 else
 	poetry run python asm-cli.py update-registry \
 		src/config/fixtures/synth.py
@@ -128,6 +163,12 @@ ifeq (${TARGET_SYNTH},diva)
 		--num-midi 1 \
 		--pairs 1 \
 		--preset-glob "*.json"
+else ifeq (${TARGET_SYNTH},noisemaker)
+	poetry run python asm-cli.py generate-param-triples \
+		--num-presets 11000 \
+		--num-midi 1 \
+		--pairs 1 \
+		--preset-glob "*.vstpreset"
 else
 	poetry run python asm-cli.py generate-param-triples \
 		--num-presets 11000 \

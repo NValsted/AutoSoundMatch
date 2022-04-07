@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from re import IGNORECASE, compile
 from typing import TYPE_CHECKING, Union
 
 import numpy as np
@@ -13,6 +14,8 @@ from src.utils.code_generation import INDENT, get_code_gen_header, sanitize_attr
 if TYPE_CHECKING:
     from src.daw.synth_model import SynthParams, SynthParamsTable
 
+MIDI_CC_PATTERN = compile(r"^MIDI\s*CC\s*\d*\|\d*$", flags=IGNORECASE)
+
 
 @dataclass
 class SynthHost:
@@ -23,25 +26,31 @@ class SynthHost:
         REGISTRY.PATH.project_root / "src" / "daw" / "synth_model.py"
     )
 
-    def create_parameter_table(self) -> Path:
+    def _get_sorted_parameters(self, include_midi_cc: bool = False) -> list[dict]:
         sorted_parameters = sorted(
-            self.synth.get_plugin_parameters_description(), key=lambda x: x["index"]
+            [
+                param
+                for param in self.synth.get_plugin_parameters_description()
+                if include_midi_cc or not MIDI_CC_PATTERN.match(param["name"])
+            ],
+            key=lambda x: x["index"],
         )
+        return sorted_parameters
+
+    def create_parameter_table(self, include_midi_cc: bool = False) -> Path:
+        sorted_parameters = self._get_sorted_parameters(include_midi_cc=include_midi_cc)
         fields = [
-            f'{sanitize_attribute(param["name"])}: float ='
+            f'{sanitize_attribute(param["name"])}_{param["index"]}: float ='
             f' Field(alias="{param["index"]}")'
             for param in sorted_parameters
         ]
 
         assert len(fields) == len(set(fields))
 
-        str_field_names = map(lambda x: '"{}"'.format(x.split(":")[0]), fields)
-
         with self._synth_model_path.open("w") as f:
             f.write(get_code_gen_header())
             f.write("from typing import Optional\n\n")
-            f.write("from sqlmodel import SQLModel, Field\n")
-            f.write("from sqlalchemy import UniqueConstraint\n\n")
+            f.write("from sqlmodel import SQLModel, Field\n\n")
             f.write("from src.utils.meta import hash_field_to_uuid\n\n\n")
             f.write("class SynthParams(SQLModel):\n")
             f.write(
@@ -53,23 +62,18 @@ class SynthHost:
             f.write(f"{INDENT*2}validate_all = True\n\n")
             f.write(f'{INDENT}_auto_uuid = hash_field_to_uuid("id")\n\n\n')
             f.write(f"class SynthParamsTable(SynthParams, table=True):\n{INDENT}")
-            f.write(f'__tablename__ = "SynthParams"\n{INDENT}')
-            f.write(
-                f"__table_args__ = (UniqueConstraint(\n{INDENT*2}"
-                + f",\n{INDENT*2}".join(str_field_names)
-                + f"\n{INDENT}),)\n"
-            )
+            f.write('__tablename__ = "SynthParams"\n')
 
         return self._synth_model_path
 
     def get_patch_as_model(
-        self, table: bool = False
+        self, table: bool = False, include_midi_cc: bool = False
     ) -> Union["SynthParams", "SynthParamsTable"]:
         from src.daw.synth_model import SynthParams, SynthParamsTable
 
         attributes = {
             str(param["index"]): self.synth.get_parameter(param["index"])
-            for param in self.synth.get_plugin_parameters_description()
+            for param in self._get_sorted_parameters(include_midi_cc=include_midi_cc)
         }
         if table:
             return SynthParamsTable(**attributes)
@@ -89,34 +93,32 @@ class SynthHost:
     def _load_json_preset(self, patch_path: Path) -> list[float]:
         with patch_path.open("r") as f:
             patch_dict = json.load(f)
-        patch = [
-            patch_dict[param["name"]]
-            for param in sorted(
-                self.synth.get_plugin_parameters_description(),
-                key=lambda x: x["index"],
+
+        params = self._get_sorted_parameters()
+        params_midi_cc = self._get_sorted_parameters(include_midi_cc=True)
+        if len(patch_dict) == len(params):
+            patch = [patch_dict[param["name"]] for param in params]
+        elif len(patch_dict) == len(params_midi_cc):
+            patch = [patch_dict[param["name"]] for param in params_midi_cc]
+        else:
+            raise ValueError(
+                f"Patch file {patch_path} has an invalid number of parameters"
             )
-        ]
         return patch
 
     def _load_fxp_preset(self, patch_path: Path) -> list[float]:
         self.synth.load_preset(str(patch_path))
         patch = [
-            float(param["text"])
-            for param in sorted(
-                self.synth.get_plugin_parameters_description(),
-                key=lambda x: x["index"],
-            )
+            self.synth.get_parameter(param["index"])
+            for param in self._get_sorted_parameters()
         ]
         return patch
 
     def _load_vst3_preset(self, patch_path: Path) -> list[float]:
         self.synth.load_vst3_preset(str(patch_path))
         patch = [
-            float(param["text"])
-            for param in sorted(
-                self.synth.get_plugin_parameters_description(),
-                key=lambda x: x["index"],
-            )
+            self.synth.get_parameter(param["index"])
+            for param in self._get_sorted_parameters()
         ]
         return patch
 
@@ -133,11 +135,8 @@ class SynthHost:
         patch = self._enforce_locked_parameters(patch)
         return patch
 
-    def set_patch(self, patch: list[float]) -> None:
-        plugin_parameters = sorted(
-            self.synth.get_plugin_parameters_description(),
-            key=lambda x: x["index"],
-        )
+    def set_patch(self, patch: list[float], include_midi_cc: bool = False) -> None:
+        plugin_parameters = self._get_sorted_parameters(include_midi_cc=include_midi_cc)
 
         if len(patch) != len(plugin_parameters):
             raise ValueError(
@@ -160,7 +159,7 @@ class SynthHost:
         patch = self._enforce_locked_parameters(
             [
                 (param["index"], uniform(0, 1).rvs())
-                for param in self.synth.get_plugin_parameters_description()
+                for param in self._get_sorted_parameters()
             ]
         )
         if apply:
