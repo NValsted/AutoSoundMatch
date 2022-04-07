@@ -39,6 +39,7 @@ from src.flow_synthesizer.enums import (
     FlowTypeEnum,
     LossEnum,
     ModelEnum,
+    ModelEnumConstructorMap,
     RegressorEnum,
 )
 from src.utils.meta import AttributeWrapper
@@ -101,7 +102,7 @@ class ModelFactory:
                 reconstruction_loss = tmp._reconstruction_loss()
 
                 if tmp.model == ModelEnum.RegressionAE:
-                    constructor = ModelEnum.RegressionAE.value
+                    constructor = ModelEnumConstructorMap[tmp.model.value]
                     model = constructor(
                         ae_model=ae_base,
                         latent_dims=tmp.latent_dim,
@@ -116,7 +117,7 @@ class ModelFactory:
                         raise ValueError("semantic_dim must be > 0")
                     disentangling = tmp._disentangling()
 
-                    constructor = ModelEnum.DisentanglingAE.value
+                    constructor = ModelEnumConstructorMap[tmp.model.value]
                     model = constructor(
                         ae_model=ae_base,
                         latent_dims=tmp.latent_dim,
@@ -131,7 +132,7 @@ class ModelFactory:
                 return ModelWrapper(model=model)
 
     def _MLP(self) -> GatedMLP:
-        constructor = self.model.value
+        constructor = ModelEnumConstructorMap[self.model.value]
         return constructor(
             in_size=reduce(lambda a, b: a * b, self.in_dim),
             out_size=self.out_dim,
@@ -140,7 +141,7 @@ class ModelFactory:
         )
 
     def _CNN(self) -> GatedCNN:
-        constructor = self.model.value
+        constructor = ModelEnumConstructorMap[self.model.value]
         return constructor(
             in_size=self.in_dim,
             out_size=self.out_dim,

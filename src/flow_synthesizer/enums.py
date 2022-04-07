@@ -45,14 +45,25 @@ class FlowTypeEnum(str, Enum):
     maf_ctx = "maf_ctx"
 
 
-class ModelEnum(Enum):
-    MLP = partial(GatedMLP, type_mod="normal")
-    GatedMLP = partial(GatedMLP, type_mod="gated")
-    CNN = partial(GatedCNN, type_mod="normal")
-    ResCNN = partial(GatedCNN, type_mod="residual")
-    GatedCNN = partial(GatedCNN, type_mod="gated")
-    RegressionAE = RegressionAE
-    DisentanglingAE = DisentanglingAE
+class ModelEnum(str, Enum):
+    MLP = "MLP"
+    GatedMLP = "GatedMLP"
+    CNN = "CNN"
+    ResCNN = "ResCNN"
+    GatedCNN = "GatedCNN"
+    RegressionAE = "RegressionAE"
+    DisentanglingAE = "DisentanglingAE"
+
+
+ModelEnumConstructorMap = dict(
+    MLP=partial(GatedMLP, type_mod="normal"),
+    GatedMLP=partial(GatedMLP, type_mod="gated"),
+    CNN=partial(GatedCNN, type_mod="normal"),
+    ResCNN=partial(GatedCNN, type_mod="residual"),
+    GatedCNN=partial(GatedCNN, type_mod="gated"),
+    RegressionAE=RegressionAE,
+    DisentanglingAE=DisentanglingAE,
+)
 
 
 class RegressorEnum(str, Enum):
