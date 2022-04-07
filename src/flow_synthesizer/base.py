@@ -22,6 +22,10 @@ from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.loss import (
     multinomial_loss,
     multinomial_mse_loss,
 )
+from src.flow_synthesizer.acids_ircam_flow_synthesizer.code.models.vae.ae import (
+    DisentanglingAE,
+    RegressionAE,
+)
 from src.flow_synthesizer.checkpoint import (
     FlowSynthParamsTable,
     ModelCheckpointTable,
@@ -184,8 +188,8 @@ class ModelWrapper:
                 losses.append(validation_loss)
 
                 if self._accumulated_epochs >= REGISTRY.TRAINMETA.start_regress or (
-                    not isinstance(self.model, ModelEnum.RegressionAE.value)
-                    and not isinstance(self.model, ModelEnum.DisentanglingAE.value)
+                    not isinstance(self.model, RegressionAE)
+                    and not isinstance(self.model, DisentanglingAE)
                 ):
                     self.scheduler.step(validation_loss.value)
 
