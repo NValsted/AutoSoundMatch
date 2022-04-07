@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Union
@@ -85,7 +86,19 @@ class SynthHost:
                 patch[param_idx] = value
         return patch
 
-    def load_preset(self, patch_path: Path) -> list[float]:
+    def _load_json_preset(self, patch_path: Path) -> list[float]:
+        with patch_path.open("r") as f:
+            patch_dict = json.load(f)
+        patch = [
+            patch_dict[param["name"]]
+            for param in sorted(
+                self.synth.get_plugin_parameters_description(),
+                key=lambda x: x["index"],
+            )
+        ]
+        return patch
+
+    def _load_fxp_preset(self, patch_path: Path) -> list[float]:
         self.synth.load_preset(str(patch_path))
         patch = [
             float(param["text"])
@@ -94,6 +107,29 @@ class SynthHost:
                 key=lambda x: x["index"],
             )
         ]
+        return patch
+
+    def _load_vst3_preset(self, patch_path: Path) -> list[float]:
+        self.synth.load_vst3_preset(str(patch_path))
+        patch = [
+            float(param["text"])
+            for param in sorted(
+                self.synth.get_plugin_parameters_description(),
+                key=lambda x: x["index"],
+            )
+        ]
+        return patch
+
+    def load_preset(self, patch_path: Path) -> list[float]:
+        if patch_path.suffix == ".json":
+            patch = self._load_json_preset(patch_path)
+        elif patch_path.suffix == ".fxp":
+            patch = self._load_fxp_preset(patch_path)
+        elif patch_path.suffix == ".vstpreset":
+            patch = self._load_vst3_preset(patch_path)
+        else:
+            raise ValueError(f"Unknown preset file type: {patch_path.suffix}")
+
         patch = self._enforce_locked_parameters(patch)
         return patch
 

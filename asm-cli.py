@@ -164,6 +164,26 @@ def mono_setup():
 
 
 @app.command()
+def setup_diva_presets():
+    import json
+    from hashlib import md5
+    from multiprocessing.pool import ThreadPool
+
+    from src.config.base import REGISTRY
+    from src.flow_synthesizer.api import load_diva_presets
+
+    def _save(preset: dict):
+        md5_hexd = md5(json.dumps(preset, sort_keys=True).encode("utf-8")).hexdigest()
+        save_path = (REGISTRY.PATH.presets / md5_hexd).with_suffix(".json")
+        with save_path.open("w") as f:
+            json.dump(preset, f, indent=4)
+        REGISTRY.add_blob(save_path)
+
+    with ThreadPool() as p:
+        p.map(_save, load_diva_presets())
+
+
+@app.command()
 def partition_midi_files(directory: list[str] = typer.Option([])):
     """
     Takes a list of directories containing midi files and partitions them into
@@ -275,16 +295,19 @@ def generate_param_triples(
     num_presets: Optional[int] = typer.Option(500),
     num_midi: Optional[int] = typer.Option(500),
     pairs: Optional[int] = typer.Option(10),
+    preset_glob: str = typer.Option("*.fxp"),
 ):
     """
     Generate triples of audio files with corresponding midi files and
     parameters from a VST instrument.
     """
     import random
+    from warnings import warn
 
     import torch
     from librosa.util import valid_audio
     from librosa.util.exceptions import ParameterError
+    from sqlalchemy.exc import IntegrityError
     from tqdm import tqdm
 
     from src.config.base import REGISTRY
@@ -306,6 +329,7 @@ def generate_param_triples(
         REGISTRY.DATASET = DatasetSection(
             num_presets=num_presets, num_midi=num_midi, pairs=pairs
         )
+    REGISTRY.commit()
 
     synth_host = sh_factory()
     db = db_factory()
@@ -323,7 +347,7 @@ def generate_param_triples(
         generate_midi(number_of_files=num_midi - len(midi_paths))
         midi_paths = list(REGISTRY.PATH.midi.glob("*.mid"))
 
-    preset_paths = list(REGISTRY.PATH.presets.glob("*.fxp"))
+    preset_paths = list(REGISTRY.PATH.presets.glob(preset_glob))
     presets = [synth_host.load_preset(path) for path in preset_paths]
 
     if num_presets is None:
@@ -348,7 +372,14 @@ def generate_param_triples(
         synth_host.set_patch(preset)
         synth_params = synth_host.get_patch_as_model(table=True)
         synth_params_id = synth_params.id
-        db.safe_add([synth_params])
+        try:
+            db.safe_add([synth_params])
+        except IntegrityError as e:
+            if "UNIQUE constraint failed" in str(e):
+                warn(str(e))
+                continue
+            else:
+                raise e
 
         for j in tqdm(range(pairs), leave=False):
             midi_file_path = midi_paths[(i + j) % len(midi_paths)]
@@ -380,8 +411,6 @@ def generate_param_triples(
             )
 
             db.safe_add([audio_bridge])
-
-    REGISTRY.commit()
 
 
 @app.command()

@@ -1,3 +1,4 @@
+import json
 from typing import Optional
 
 import torch
@@ -5,6 +6,7 @@ from scipy.io import wavfile
 from tqdm import tqdm
 
 from src.config.base import REGISTRY
+from src.config.paths import get_project_root
 from src.config.registry_sections import FlowSynthSection, TrainMetadataSection
 from src.database.dataset import FlowSynthDataset, load_formatted_audio
 from src.daw.audio_model import AudioBridgeTable
@@ -124,3 +126,19 @@ def evaluate_inference(
             losses.append(loss_model)
 
     return losses
+
+
+def load_diva_presets() -> list[dict]:
+    dataset_path = (
+        get_project_root()
+        / "src"
+        / "flow_synthesizer"
+        / "acids_ircam_flow_synthesizer"
+        / "code"
+        / "dataset.json"
+    ).resolve()
+
+    with open(dataset_path, "r") as f:
+        dataset = json.load(f)
+
+    return [preset["MIDI"] for preset in dataset.values()]

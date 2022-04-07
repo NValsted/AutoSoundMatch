@@ -5,7 +5,10 @@ DOWNLOADS_DIR ?= data/downloads
 
 PRESETS_DIR ?= data/presets
 SYNTH_PATH ?= data/synth/MikaMicro64.dll
-BENCHMARK_DIVA ?= 0
+
+# Benchmarks
+TARGET_SYNTH ?= mikamicro
+PARAM_LIMIT ?= 32
 
 DOCKER_IMAGE ?= nvalsted/autosoundmatch:latest
 
@@ -87,28 +90,54 @@ inspect:
 	@poetry run python -c "import warnings; warnings.filterwarnings('ignore'); from torch.cuda import is_available; print('USING GPU' if is_available() else 'USING CPU')"
 	poetry run python asm-cli.py inspect-registry
 
-mono-benchmark:
+figures:
+	poetry run python src/graphics/cli.py train-val-loss --latest
+	poetry run python src/graphics/cli.py spectral-loss-distplot --latest
+	poetry run python src/graphics/cli.py tsne-latent-space
+	poetry run python src/graphics/cli.py inference-comparison
+
+mono-benchmark-setup:
 	make reset
-	poetry run python asm-cli.py setup-paths \
-		--midi data/mono-midi \
-		--audio data/mono-audio \
-		--model ${MODEL_DIR} \
-		--downloads ${DOWNLOADS_DIR} \
-		--presets ${PRESETS_DIR}
-ifeq (${BENCHMARK_DIVA},1)
+	make paths
+
+ifeq (${TARGET_SYNTH},diva)
 	poetry run python asm-cli.py update-registry \
-		src/config/fixtures/aiflowsynth/u-he_diva32.py
+		src/config/fixtures/aiflowsynth/u-he_diva.py
+	poetry run python asm-cli.py update-registry \
+		src/config/fixtures/aiflowsynth/u-he_diva${PARAM_LIMIT}.py
+	poetry run python asm-cli.py setup-diva-presets
+
+else ifeq (${TARGET_SYNTH},mikamicro)
+	poetry run python asm-cli.py update-registry \
+		src/config/fixtures/mikamicro.py
+	poetry run python asm-cli.py update-registry \
+		src/config/fixtures/mikamicro${PARAM_LIMIT}.py
+
 else
 	poetry run python asm-cli.py update-registry \
-		src/config/fixtures/synth32.py
+		src/config/fixtures/synth.py
 endif
+
 	poetry run python asm-cli.py setup-relational-models \
 		--engine-url "sqlite:///data/local.db"
 	poetry run python asm-cli.py mono-setup
+
+ifeq (${TARGET_SYNTH},diva)
 	poetry run python asm-cli.py generate-param-triples \
+		--num-presets 11000 \
+		--num-midi 1 \
+		--pairs 1 \
+		--preset-glob "*.json"
+else
+	poetry run python asm-cli.py generate-param-triples \
+		--num-presets 11000 \
 		--num-midi 1 \
 		--pairs 1
+endif
+
 	poetry run python asm-cli.py process-audio
+
+mono-benchmark-models:
 	for fxt in ae cnn flowreg mlp resnet vae wae vaeflow ; do \
 		poetry run python asm-cli.py update-registry \
 			src/config/fixtures/aiflowsynth/${fxt}.py; \
@@ -116,8 +145,6 @@ endif
 		make evaluate; \
 	done
 
-figures:
-	poetry run python src/graphics/cli.py train-val-loss --latest
-	poetry run python src/graphics/cli.py spectral-loss-distplot --latest
-	poetry run python src/graphics/cli.py tsne-latent-space
-	poetry run python src/graphics/cli.py inference-comparison
+mono-benchmark:
+	make mono-benchmark-setup
+	make mono-benchmark-models
