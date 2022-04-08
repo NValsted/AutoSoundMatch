@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM nvidia/cuda:11.6.1-base-ubuntu20.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -50,7 +50,7 @@ RUN ln -s /usr/lib/x86_64-linux-gnu/libsamplerate.so.0 /usr/local/lib/libsampler
 ENV CPLUS_INCLUDE_PATH=/usr/include/python3.9/
 
 WORKDIR /DawDreamer/dawdreamer/
-RUN git checkout 772048dcbfb2ceb2519d9c6a77917e25970ca1db
+# RUN git checkout 772048dcbfb2ceb2519d9c6a77917e25970ca1db
 RUN git clone https://github.com/grame-cncm/faustlibraries.git
 
 WORKDIR /DawDreamer/Builds/LinuxMakefile/

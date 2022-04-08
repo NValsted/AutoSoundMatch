@@ -481,7 +481,7 @@ def process_audio(
 
 
 @app.command()
-def train_model(validation_split: Optional[float] = typer.Option(0.15)):
+def train_model(validation_split: Optional[float] = typer.Option(0.1)):
     """
     Train a model to estimate parameters.
     """

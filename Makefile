@@ -1,3 +1,5 @@
+PYTHON_INTERPRETER_PATH ?= poetry run python
+
 MIDI_DIR ?= data/midi
 AUDIO_DIR ?= data/audio
 MODEL_DIR ?= data/model
@@ -12,18 +14,27 @@ PARAM_LIMIT ?= 32
 
 DOCKER_IMAGE ?= nvalsted/autosoundmatch:latest
 
+nvidia-container-toolkit:  # Should work for Ubuntu and Debian - Otherwise, see: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+	distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
+	&& curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+	&& curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+		sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+		sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+	sudo apt-get install -y nvidia-docker2
+	sudo systemctl restart docker
+
 build-image:
 ifeq ($(OS),Windows_NT)
-	docker build --no-cache . -t ${DOCKER_IMAGE}
+	docker build . -t ${DOCKER_IMAGE}
 else
-	sudo docker build --no-cache . -t ${DOCKER_IMAGE}
+	sudo docker build . -t ${DOCKER_IMAGE}
 endif
 
 run-image-interactive:
 	docker run --rm -it ${DOCKER_IMAGE}
 
 paths:
-	poetry run python asm-cli.py setup-paths \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py setup-paths \
 		--midi ${MIDI_DIR} \
 		--audio ${AUDIO_DIR} \
 		--model ${MODEL_DIR} \
@@ -54,6 +65,7 @@ ifeq ($(OS),Windows_NT)
 	then \
 		wget https://tal-software.com//downloads/plugins/install_tal-noisemaker.zip -O ${DOWNLOADS_DIR}/install_tal-noisemaker.zip && \
 		unzip ${DOWNLOADS_DIR}/install_tal-noisemaker.zip "TAL-NoiseMaker.vst3/**/*" -d ${DOWNLOADS_DIR} && \
+		mkdir -p ${SYNTH_PATH} && \
 		mv ${DOWNLOADS_DIR}/TAL-NoiseMaker.vst3/Contents/x86_64-win/TAL-NoiseMaker.vst3 ${SYNTH_PATH} && \
 		rm ${DOWNLOADS_DIR}/install_tal-noisemaker.zip && \
 		rm -r ${DOWNLOADS_DIR}/TAL-NoiseMaker.vst3; \
@@ -85,18 +97,18 @@ clear-resources:
 	rm ${PRESETS_DIR}/*TAL.vstpreset ${PRESETS_DIR}/*FN.vstpreset ${PRESETS_DIR}/*AS.vstpreset ${PRESETS_DIR}/*TUC.vstpreset ${PRESETS_DIR}/*FM.vstpreset
 
 tables:
-	poetry run python asm-cli.py setup-relational-models \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py setup-relational-models \
 		--engine-url "sqlite:///data/local.db" \
 		--synth-path ${SYNTH_PATH}
 
 midi-partitions:
-	poetry run python asm-cli.py partition-midi-files \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py partition-midi-files \
 		--directory ${DOWNLOADS_DIR}/msmd_real_performances/msmd_all_deadpan/performance/ \
 		--directory ${DOWNLOADS_DIR}/lmd_matched/A/A/
 
 dataset:
-	poetry run python asm-cli.py generate-param-triples
-	poetry run python asm-cli.py process-audio
+	${PYTHON_INTERPRETER_PATH} asm-cli.py generate-param-triples
+	${PYTHON_INTERPRETER_PATH} asm-cli.py process-audio
 
 prepare-data:
 	make tables
@@ -105,83 +117,84 @@ prepare-data:
 
 model:
 	@echo "Training main model"
-	poetry run python asm-cli.py train-model
+	${PYTHON_INTERPRETER_PATH} asm-cli.py train-model
 
 evaluate:
-	poetry run python asm-cli.py test-model
+	${PYTHON_INTERPRETER_PATH} asm-cli.py test-model
 
 reset:
 	@echo "Resetting project state"
-	poetry run python asm-cli.py reset
+	${PYTHON_INTERPRETER_PATH} asm-cli.py reset
 
 inspect:
 	@echo "Inspecting project state"
-	@poetry run python -c "import warnings; warnings.filterwarnings('ignore'); from torch.cuda import is_available; print('USING GPU' if is_available() else 'USING CPU')"
-	poetry run python asm-cli.py inspect-registry
+	@${PYTHON_INTERPRETER_PATH} -c "import warnings; warnings.filterwarnings('ignore'); from torch.cuda import is_available; print('USING GPU' if is_available() else 'USING CPU')"
+	${PYTHON_INTERPRETER_PATH} asm-cli.py inspect-registry
 
 figures:
-	poetry run python src/graphics/cli.py train-val-loss --latest
-	poetry run python src/graphics/cli.py spectral-loss-distplot --latest
-	poetry run python src/graphics/cli.py tsne-latent-space
-	poetry run python src/graphics/cli.py inference-comparison
+	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py train-val-loss --latest
+	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py spectral-loss-distplot --latest
+	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py tsne-latent-space
+	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py inference-comparison
 
 mono-benchmark-setup:
 	make reset
 	make paths
+	make resources
 
 ifeq (${TARGET_SYNTH},diva)
-	poetry run python asm-cli.py update-registry \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/aiflowsynth/u-he_diva.py
-	poetry run python asm-cli.py update-registry \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/aiflowsynth/u-he_diva${PARAM_LIMIT}.py
-	poetry run python asm-cli.py setup-diva-presets
+	${PYTHON_INTERPRETER_PATH} asm-cli.py setup-diva-presets
 
 else ifeq (${TARGET_SYNTH},mikamicro)
-	poetry run python asm-cli.py update-registry \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/mikamicro.py
-	poetry run python asm-cli.py update-registry \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/mikamicro${PARAM_LIMIT}.py
 
 else ifeq (${TARGET_SYNTH},noisemaker)
-	poetry run python asm-cli.py update-registry \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/noisemaker.py
-	poetry run python asm-cli.py update-registry \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/noisemaker${PARAM_LIMIT}.py
 
 else
-	poetry run python asm-cli.py update-registry \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/synth.py
 endif
 
-	poetry run python asm-cli.py setup-relational-models \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py setup-relational-models \
 		--engine-url "sqlite:///data/local.db"
-	poetry run python asm-cli.py mono-setup
+	${PYTHON_INTERPRETER_PATH} asm-cli.py mono-setup
 
 ifeq (${TARGET_SYNTH},diva)
-	poetry run python asm-cli.py generate-param-triples \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py generate-param-triples \
 		--num-presets 11000 \
 		--num-midi 1 \
 		--pairs 1 \
 		--preset-glob "*.json"
 else ifeq (${TARGET_SYNTH},noisemaker)
-	poetry run python asm-cli.py generate-param-triples \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py generate-param-triples \
 		--num-presets 11000 \
 		--num-midi 1 \
 		--pairs 1 \
 		--preset-glob "*.vstpreset"
 else
-	poetry run python asm-cli.py generate-param-triples \
+	${PYTHON_INTERPRETER_PATH} asm-cli.py generate-param-triples \
 		--num-presets 11000 \
 		--num-midi 1 \
 		--pairs 1
 endif
 
-	poetry run python asm-cli.py process-audio
+	${PYTHON_INTERPRETER_PATH} asm-cli.py process-audio
 
 mono-benchmark-models:
 	for fxt in ae cnn flowreg mlp resnet vae wae vaeflow ; do \
-		poetry run python asm-cli.py update-registry \
-			src/config/fixtures/aiflowsynth/${fxt}.py; \
+		${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
+			src/config/fixtures/aiflowsynth/$${fxt}.py; \
 		make model; \
 		make evaluate; \
 	done

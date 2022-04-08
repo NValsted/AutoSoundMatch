@@ -5,6 +5,7 @@ synth_config = SynthSection(
     synth_path=get_project_root() / "data" / "synth" / "TAL-NoiseMaker.vst3",
     locked_parameters={
         24: 0.0,  # Osc 1 Waveform duplicate
+        37: 0.5,  # Osc 2 Phase duplicate
         39: 0.5,  # Osc 2 Phase duplicate
         "-": 0.5,
         "Master Volume": 0.40800002217292786,

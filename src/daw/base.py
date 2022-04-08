@@ -1,7 +1,8 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from re import IGNORECASE, compile
+from re import IGNORECASE
+from re import compile as compile_regex
 from typing import TYPE_CHECKING, Union
 
 import numpy as np
@@ -14,7 +15,7 @@ from src.utils.code_generation import INDENT, get_code_gen_header, sanitize_attr
 if TYPE_CHECKING:
     from src.daw.synth_model import SynthParams, SynthParamsTable
 
-MIDI_CC_PATTERN = compile(r"^MIDI\s*CC\s*\d*\|\d*$", flags=IGNORECASE)
+MIDI_CC_PATTERN = compile_regex(r"^MIDI\s*CC\s*\d*\|\d*$", flags=IGNORECASE)
 
 
 @dataclass
