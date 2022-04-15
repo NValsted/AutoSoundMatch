@@ -70,10 +70,10 @@ class FlowSynthSection(BaseModel):
     dilation: int = 3
     flow_type: Optional[FlowTypeEnum] = FlowTypeEnum.iaf  # TODO: Group parameters
     flow_length: Optional[int] = 16
-    regressor: Optional[RegressorEnum] = RegressorEnum.mlp
+    regressor: Optional[RegressorEnum] = RegressorEnum.flow_p
     regressor_flow_type: Optional[FlowTypeEnum] = FlowTypeEnum.iaf
-    regressor_hidden_dim: Optional[int] = 1024
-    regressor_layers: Optional[int] = 3
+    regressor_hidden_dim: Optional[int] = None
+    regressor_layers: Optional[int] = 16
     reconstruction_loss: Optional[LossEnum] = LossEnum.mse
     disentangling_model: Optional[DisentanglingModelEnum] = None
     disentangling_layers: Optional[int] = None

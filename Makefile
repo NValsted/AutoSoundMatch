@@ -116,7 +116,6 @@ prepare-data:
 	make dataset
 
 model:
-	@echo "Training main model"
 	${PYTHON_INTERPRETER_PATH} asm-cli.py train-model
 
 evaluate:
@@ -144,20 +143,14 @@ mono-benchmark-setup:
 
 ifeq (${TARGET_SYNTH},diva)
 	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
-		src/config/fixtures/aiflowsynth/u-he_diva.py
-	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/aiflowsynth/u-he_diva${PARAM_LIMIT}.py
 	${PYTHON_INTERPRETER_PATH} asm-cli.py setup-diva-presets
 
 else ifeq (${TARGET_SYNTH},mikamicro)
 	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
-		src/config/fixtures/mikamicro.py
-	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/mikamicro${PARAM_LIMIT}.py
 
 else ifeq (${TARGET_SYNTH},noisemaker)
-	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
-		src/config/fixtures/noisemaker.py
 	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/noisemaker${PARAM_LIMIT}.py
 

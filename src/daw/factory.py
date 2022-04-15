@@ -21,6 +21,8 @@ class SynthHostFactory:
 
     def __call__(self, *args, **kwargs) -> SynthHost:
         with temporary_attrs(self, *args, **kwargs) as tmp:
+            tmp: SynthHostFactory
+
             engine = RenderEngine(tmp.sample_rate, tmp.buffer_size)
             engine.set_bpm(tmp.bpm)
             synth = engine.make_plugin_processor("synth", str(tmp.synth_path))

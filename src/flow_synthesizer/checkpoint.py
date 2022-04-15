@@ -70,6 +70,8 @@ class TrainMetadataParamsTable(SQLModel, table=True):
     __tablename__ = "TrainMetadataParams"
 
     id: Optional[str] = Field(primary_key=True, default=None)
+    in_dim: str
+    out_dim: int
     epochs: int
     batch_size: int
     time_limit: Optional[int]
@@ -96,6 +98,8 @@ class TrainMetadataParamsTable(SQLModel, table=True):
         cls, train_metadata_section: TrainMetadataSection
     ) -> "TrainMetadataParamsTable":
         return cls(
+            in_dim=str(train_metadata_section.in_dim),
+            out_dim=train_metadata_section.out_dim,
             epochs=train_metadata_section.epochs,
             batch_size=train_metadata_section.batch_size,
             time_limit=train_metadata_section.time_limit,

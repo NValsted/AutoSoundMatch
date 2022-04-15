@@ -21,9 +21,8 @@ flowsynth_config = FlowSynthSection(
     dilation=3,
     flow_type=FlowTypeEnum.iaf,
     flow_length=16,
-    regressor=RegressorEnum.mlp,
+    regressor=RegressorEnum.flow_p,
     regressor_flow_type=FlowTypeEnum.iaf,
-    regressor_hidden_dim=1024,
-    regressor_layers=3,
+    regressor_layers=16,
     reconstruction_loss=LossEnum.mse,
 )

@@ -28,7 +28,8 @@ RUN apt-get update -yq && apt-get install -yq \
     libxcursor-dev \
     llvm-11 \
     llvm-11-dev \
-    libsamplerate0 
+    libsamplerate0  \
+    libsndfile1
 RUN apt-get clean -y
 
 # Download/Install poetry

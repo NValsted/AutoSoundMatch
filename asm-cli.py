@@ -292,7 +292,7 @@ def setup_relational_models(
 
 @app.command()
 def generate_param_triples(
-    num_presets: Optional[int] = typer.Option(500),
+    num_presets: Optional[int] = typer.Option(11000),
     num_midi: Optional[int] = typer.Option(500),
     pairs: Optional[int] = typer.Option(10),
     preset_glob: str = typer.Option("*.fxp"),

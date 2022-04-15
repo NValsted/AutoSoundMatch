@@ -27,7 +27,9 @@ class SynthHost:
         REGISTRY.PATH.project_root / "src" / "daw" / "synth_model.py"
     )
 
-    def _get_sorted_parameters(self, include_midi_cc: bool = False) -> list[dict]:
+    def _get_sorted_parameters(
+        self, include_midi_cc: bool = False, include_locked: bool = False
+    ) -> list[dict]:
         sorted_parameters = sorted(
             [
                 param
@@ -36,10 +38,19 @@ class SynthHost:
             ],
             key=lambda x: x["index"],
         )
-        return sorted_parameters
+        finalized_parameters = [
+            param
+            for idx, param in enumerate(sorted_parameters)
+            if idx not in self.locked_parameters or include_locked
+        ]
+        return finalized_parameters
 
-    def create_parameter_table(self, include_midi_cc: bool = False) -> Path:
-        sorted_parameters = self._get_sorted_parameters(include_midi_cc=include_midi_cc)
+    def create_parameter_table(
+        self, include_midi_cc: bool = False, include_locked: bool = False
+    ) -> Path:
+        sorted_parameters = self._get_sorted_parameters(
+            include_midi_cc=include_midi_cc, include_locked=include_locked
+        )
         fields = [
             f'{sanitize_attribute(param["name"])}_{param["index"]}: float ='
             f' Field(alias="{param["index"]}")'
@@ -68,35 +79,64 @@ class SynthHost:
         return self._synth_model_path
 
     def get_patch_as_model(
-        self, table: bool = False, include_midi_cc: bool = False
+        self,
+        table: bool = False,
+        include_midi_cc: bool = False,
+        include_locked: bool = False,
     ) -> Union["SynthParams", "SynthParamsTable"]:
         from src.daw.synth_model import SynthParams, SynthParamsTable
 
         attributes = {
             str(param["index"]): self.synth.get_parameter(param["index"])
-            for param in self._get_sorted_parameters(include_midi_cc=include_midi_cc)
+            for param in self._get_sorted_parameters(
+                include_midi_cc=include_midi_cc, include_locked=include_locked
+            )
         }
+
         if table:
             return SynthParamsTable(**attributes)
         else:
             return SynthParams(**attributes)
 
     def _enforce_locked_parameters(
-        self, patch: list[Union[float, tuple[int, float]]]
+        self,
+        patch: list[Union[float, tuple[int, float]]],
+        include_midi_cc: bool = False,
+        include_locked: bool = False,
     ) -> list[Union[float, tuple[int, float]]]:
-        for param_idx, value in self.locked_parameters.items():
-            if isinstance(patch[param_idx], tuple):
-                patch[param_idx] = (patch[param_idx][0], value)
-            else:
-                patch[param_idx] = value
+        parameters = self._get_sorted_parameters(
+            include_midi_cc=include_midi_cc, include_locked=include_locked
+        )
+        if len(parameters) != len(patch):
+            raise ValueError(
+                f"Patch is not valid with {len(patch)=}. Expected"
+                f" {len(parameters)} parameters."
+            )
+
+        if include_locked:
+            for param_idx, value in self.locked_parameters.items():
+                if isinstance(patch[param_idx], tuple):
+                    patch[param_idx] = (patch[param_idx][0], value)
+                else:
+                    patch[param_idx] = value
+        else:
+            for param in patch:
+                if isinstance(param, tuple):
+                    if param[0] in self.locked_parameters:
+                        raise ValueError(
+                            f"Locked parameter {param} present in patch, but"
+                            f" {include_locked=}"
+                        )
         return patch
 
     def _load_json_preset(self, patch_path: Path) -> list[float]:
         with patch_path.open("r") as f:
             patch_dict = json.load(f)
 
-        params = self._get_sorted_parameters()
-        params_midi_cc = self._get_sorted_parameters(include_midi_cc=True)
+        params = self._get_sorted_parameters(include_locked=True)
+        params_midi_cc = self._get_sorted_parameters(
+            include_midi_cc=True, include_locked=True
+        )
         if len(patch_dict) == len(params):
             patch = [patch_dict[param["name"]] for param in params]
         elif len(patch_dict) == len(params_midi_cc):
@@ -111,7 +151,9 @@ class SynthHost:
         self.synth.load_preset(str(patch_path))
         patch = [
             self.synth.get_parameter(param["index"])
-            for param in self._get_sorted_parameters()
+            for param in self._get_sorted_parameters(
+                include_locked=True,
+            )
         ]
         return patch
 
@@ -119,11 +161,18 @@ class SynthHost:
         self.synth.load_vst3_preset(str(patch_path))
         patch = [
             self.synth.get_parameter(param["index"])
-            for param in self._get_sorted_parameters()
+            for param in self._get_sorted_parameters(
+                include_locked=True,
+            )
         ]
         return patch
 
-    def load_preset(self, patch_path: Path) -> list[float]:
+    def load_preset(
+        self,
+        patch_path: Path,
+        include_midi_cc: bool = False,
+        include_locked: bool = False,
+    ) -> list[float]:
         if patch_path.suffix == ".json":
             patch = self._load_json_preset(patch_path)
         elif patch_path.suffix == ".fxp":
@@ -133,11 +182,26 @@ class SynthHost:
         else:
             raise ValueError(f"Unknown preset file type: {patch_path.suffix}")
 
-        patch = self._enforce_locked_parameters(patch)
+        plugin_parameters = self._get_sorted_parameters(
+            include_midi_cc=include_midi_cc, include_locked=include_locked
+        )
+
+        patch = self._enforce_locked_parameters(
+            [patch[i] for i, _ in enumerate(plugin_parameters)],
+            include_midi_cc=include_midi_cc,
+            include_locked=include_locked,
+        )
         return patch
 
-    def set_patch(self, patch: list[float], include_midi_cc: bool = False) -> None:
-        plugin_parameters = self._get_sorted_parameters(include_midi_cc=include_midi_cc)
+    def set_patch(
+        self,
+        patch: list[float],
+        include_midi_cc: bool = False,
+        include_locked: bool = False,
+    ) -> None:
+        plugin_parameters = self._get_sorted_parameters(
+            include_midi_cc=include_midi_cc, include_locked=include_locked
+        )
 
         if len(patch) != len(plugin_parameters):
             raise ValueError(
@@ -149,7 +213,9 @@ class SynthHost:
             raise ValueError("Patch must be a list of floats")
 
         finalized_patch = self._enforce_locked_parameters(
-            [(param["index"], patch[i]) for i, param in enumerate(plugin_parameters)]
+            [(param["index"], patch[i]) for i, param in enumerate(plugin_parameters)],
+            include_midi_cc=include_midi_cc,
+            include_locked=include_locked,
         )
         self.synth.set_patch(finalized_patch)
 

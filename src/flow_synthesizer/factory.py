@@ -49,7 +49,7 @@ from src.utils.temporary_context import temporary_attrs
 @dataclass
 class ModelFactory:
     in_dim: list[int]
-    out_dim: list[int]
+    out_dim: int
     encoding_dim: int
     latent_dim: int
     channels: int
@@ -73,6 +73,8 @@ class ModelFactory:
 
     def __call__(self, *args, **kwargs) -> ModelWrapper:
         with temporary_attrs(self, *args, **kwargs) as tmp:
+            tmp: ModelFactory
+
             if tmp.model in (ModelEnum.MLP, ModelEnum.GatedMLP):
                 model = tmp._MLP()
                 return ModelWrapper(model=model)
@@ -87,7 +89,6 @@ class ModelFactory:
                 ae_base_kwargs = dict(
                     encoder=encoder,
                     decoder=decoder,
-                    input_dims=tmp.in_dim,
                     encoder_dims=tmp.encoding_dim,
                     latent_dims=tmp.latent_dim,
                 )
@@ -96,6 +97,8 @@ class ModelFactory:
                 if "flow" in inspect.signature(ae_base_constructor).parameters:
                     flow = tmp._flow()
                     ae_base_kwargs["flow"] = flow
+                if "input_dims" in inspect.signature(ae_base_constructor).parameters:
+                    ae_base_kwargs["input_dims"] = tmp.in_dim
 
                 ae_base = ae_base_constructor(**ae_base_kwargs)
                 regressor = tmp._regressor()

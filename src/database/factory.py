@@ -14,6 +14,8 @@ class DBFactory:
 
     def __call__(self, *args, **kwargs) -> Database:
         with temporary_attrs(self, *args, **kwargs) as tmp:
+            tmp: DBFactory
+
             engine = create_engine(url=tmp.engine_url, **kwargs)
             return Database(engine=engine, **kwargs)
 
