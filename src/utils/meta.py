@@ -1,6 +1,9 @@
+import io
+from pickle import Unpickler
 from threading import Lock
 from uuid import NAMESPACE_DNS, UUID, uuid5
 
+import torch
 from pydantic import root_validator
 
 
@@ -50,3 +53,15 @@ def hash_field_to_uuid(field: str = "id") -> str:
         return values
 
     return _func
+
+
+class CPUTorchUnpickler(Unpickler):
+    """
+    References https://github.com/pytorch/pytorch/issues/16797#issuecomment-633423219
+    """
+
+    def find_class(self, module, name):
+        if module == "torch.storage" and name == "_load_from_bytes":
+            return lambda b: torch.load(io.BytesIO(b), map_location="cpu")
+        else:
+            return super().find_class(module, name)

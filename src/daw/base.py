@@ -237,6 +237,8 @@ class SynthHost:
         """
         load the midi file and and an audio file.
         """
+        if not Path(midi_path).is_file():
+            raise ValueError(f"{midi_path} does not exist or is not a file")
         self.synth.load_midi(str(midi_path))
         self.engine.render(REGISTRY.SYNTH.duration)
         return self.engine.get_audio().transpose()

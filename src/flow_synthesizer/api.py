@@ -86,6 +86,7 @@ def evaluate_inference(
     monophonic: bool = False,
 ) -> list[LossTable]:
     sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
+    synth_host = sh_factory()
 
     losses = []
 
@@ -97,7 +98,6 @@ def evaluate_inference(
         with torch.no_grad():
             estimated_params = model(formatted_signal)[0]
 
-        synth_host = sh_factory()
         synth_host.set_patch(estimated_params.tolist())
         inferred_audio = synth_host.render(bridge.midi_path)
 

@@ -87,7 +87,6 @@ endif
 		rm ${DOWNLOADS_DIR}/TAL-NoiseMaker%20vst3.zip; \
 	fi
 
-
 clear-resources:
 	rm -r ${DOWNLOADS_DIR}/msmd_all
 	rm -r ${DOWNLOADS_DIR}/msmd_real_performances

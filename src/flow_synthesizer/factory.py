@@ -203,11 +203,14 @@ class ModelFactory:
         return flow
 
     def _regressor(self) -> Union[FlowPredictor, BayesianRegressor, nn.Sequential]:
-        if self.regressor_flow_type is None and self.regressor != RegressorEnum.MLP:
+        if self.regressor_flow_type is None and self.regressor != RegressorEnum.mlp:
             raise ValueError("regressor_flow_type is required with current parameters")
         if self.regressor is None:
             raise ValueError("regressor is required with current parameters")
-        if self.regressor_hidden_dim is None:
+        if self.regressor_hidden_dim is None and self.regressor in (
+            RegressorEnum.mlp,
+            RegressorEnum.bnn,
+        ):
             raise ValueError("regressor_hidden_dim is required with current parameters")
         return construct_regressor(
             in_dims=self.latent_dim,

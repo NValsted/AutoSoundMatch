@@ -540,6 +540,8 @@ def test_model(model_path: Optional[str] = typer.Option(None)):
     """
     Test the trained model.
     """
+    from pathlib import Path
+
     from src.config.base import REGISTRY
     from src.database.dataset import FlowSynthDataset
     from src.database.factory import DBFactory
@@ -547,7 +549,7 @@ def test_model(model_path: Optional[str] = typer.Option(None)):
     from src.flow_synthesizer.base import ModelWrapper
 
     model = ModelWrapper.load(
-        REGISTRY.FLOWSYNTH.active_model_path if model_path is None else model_path
+        REGISTRY.FLOWSYNTH.active_model_path if model_path is None else Path(model_path)
     )
 
     db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
@@ -567,6 +569,8 @@ def estimate_synth_params(
     """
     Estimate synth parameters from an audio signal.
     """
+    from pathlib import Path
+
     import torch
 
     from src.config.base import REGISTRY
@@ -575,7 +579,7 @@ def estimate_synth_params(
     from src.flow_synthesizer.base import ModelWrapper
 
     model = ModelWrapper.load(
-        REGISTRY.FLOWSYNTH.active_model_path if model_path is None else model_path
+        REGISTRY.FLOWSYNTH.active_model_path if model_path is None else Path(model_path)
     )
     sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
     synth_host = sh_factory()

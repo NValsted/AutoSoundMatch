@@ -94,12 +94,14 @@ def tsne_latent_space(model_path: Optional[str] = typer.Option(None)):
 
 @app.command()
 def inference_comparison(model_path: Optional[str] = typer.Option(None)):
+    from pathlib import Path
+
     from src.config.base import REGISTRY
     from src.flow_synthesizer.base import ModelWrapper
     from src.graphics.inference_instance import inference_comparison
 
     model = ModelWrapper.load(
-        REGISTRY.FLOWSYNTH.active_model_path if model_path is None else model_path
+        REGISTRY.FLOWSYNTH.active_model_path if model_path is None else Path(model_path)
     )
     fig = inference_comparison(model)
     fig.show()

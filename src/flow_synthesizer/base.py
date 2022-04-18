@@ -33,7 +33,7 @@ from src.flow_synthesizer.checkpoint import (
 )
 from src.flow_synthesizer.enums import LossEnum, ModelEnum, SchedulerModeEnum
 from src.utils.loss_model import LossTable, TrainValTestEnum
-from src.utils.meta import AttributeWrapper
+from src.utils.meta import AttributeWrapper, CPUTorchUnpickler
 
 
 @dataclass
@@ -139,6 +139,11 @@ class ModelWrapper:
                 return kwarg_name
         else:
             raise ValueError(f"Unable to determine loss keyword argument in {func}")
+
+    def to(self, device: torch.device) -> None:
+        if self.loss not in (multinomial_loss, multinomial_mse_loss):
+            self.loss.to(device)
+        self.model.to(device)
 
     def train(
         self,
@@ -279,7 +284,10 @@ class ModelWrapper:
         )
 
         with cp_path.open("wb") as f:
+            self.to(torch.device("cpu"))
             pickle.dump(self, f)
+            self.to(PYTORCH_DEVICE)
+
         REGISTRY.add_blob(cp_path)
 
         db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
@@ -318,7 +326,10 @@ class ModelWrapper:
     @staticmethod
     def load(path: Path) -> "ModelWrapper":
         with path.open("rb") as f:
-            model = pickle.load(f)
+            if PYTORCH_DEVICE.type == "cpu":
+                model = CPUTorchUnpickler(f).load()
+            else:
+                model = pickle.load(f)
 
         if not isinstance(model, ModelWrapper):
             raise ValueError(
@@ -326,4 +337,5 @@ class ModelWrapper:
                 f" got {type(model)}"
             )
 
+        model.to(PYTORCH_DEVICE)
         return model
