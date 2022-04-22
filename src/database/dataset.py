@@ -14,9 +14,9 @@ from src.config.base import PYTORCH_DEVICE, REGISTRY
 from src.config.registry_sections import DatasetSection
 from src.database.base import Database
 from src.daw.audio_model import AudioBridgeTable
+from src.daw.signal_processing import SIGNAL_PROCESSOR
 from src.daw.synth_model import SynthParamsTable
 from src.utils.meta import hash_field_to_uuid
-from src.utils.signal_processing import SIGNAL_PROCESSOR
 from src.utils.temporary_context import temporary_attrs
 
 SelectOfScalar.inherit_cache = True

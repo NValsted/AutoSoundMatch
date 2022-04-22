@@ -1,9 +1,9 @@
 import os
-import pickle
 from pathlib import Path
 from typing import Any, Optional, Union
 from warnings import warn
 
+import dill
 import torch
 from pydantic import BaseModel
 
@@ -13,6 +13,7 @@ from src.config.registry_sections import (
     FlowSynthSection,
     PathSection,
     RegistrySectionsMap,
+    SignalProcessingSection,
     SynthSection,
     TrainMetadataSection,
 )
@@ -32,13 +33,14 @@ class Registry(BaseModel):
     DATASET: Optional[DatasetSection] = None
     FLOWSYNTH: Optional[FlowSynthSection] = None
     TRAINMETA: Optional[TrainMetadataSection] = None
+    SIGNAL_PROCESSING: Optional[SignalProcessingSection] = None
 
     def is_modified(self) -> bool:
         return bool(self._state_changes)
 
     def commit(self) -> None:
         with open(_REGISTRY_CONFIG_FILE, "wb") as f:
-            pickle.dump(self, f)
+            dill.dump(self, f)
 
     def __getattribute__(self, __name: str) -> Any:
         attr = super().__getattribute__(__name)
@@ -84,8 +86,9 @@ for file in [_REGISTRY_CONFIG_FILE, _BLOB_REFERENCE_FILE]:
 with open(_REGISTRY_CONFIG_FILE, "rb") as f:
     content = f.read()
     try:
-        REGISTRY = pickle.loads(content) if content else Registry()
-    except pickle.UnpicklingError:
+        REGISTRY = dill.loads(content) if content else Registry()
+    except dill.UnpicklingError as err:
+        warn(err)
         warn("Registry file is corrupted, resetting")
         REGISTRY = Registry()
 

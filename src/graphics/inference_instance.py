@@ -12,9 +12,10 @@ from src.database.dataset import load_formatted_audio
 from src.database.factory import DBFactory
 from src.daw.audio_model import AudioBridgeTable
 from src.daw.factory import SynthHostFactory
+from src.daw.signal_processing import SIGNAL_PROCESSOR
+from src.daw.signal_transformers import StereoToMono
 from src.daw.synth_model import SynthParamsTable
 from src.flow_synthesizer.base import ModelWrapper
-from src.utils.signal_processing import SignalProcessor, StereoToMono
 
 
 def inference_comparison(
@@ -26,7 +27,12 @@ def inference_comparison(
         db = db_factory()
 
         with db.session() as session:
-            audio_bridge = session.exec(select(AudioBridgeTable).limit(1)).first()
+            audio_bridge = session.exec(
+                select(AudioBridgeTable)
+                .where(AudioBridgeTable.test_flag == True)  # NOQA: E712
+                .offset(0)
+                .limit(1)
+            ).first()
             synth_params_query = select(SynthParamsTable.__table__).filter(
                 SynthParamsTable.id.in_([audio_bridge.synth_params])
             )
@@ -41,7 +47,7 @@ def inference_comparison(
     synth_host = sh_factory()
     synth_host.set_patch(estimated_params.tolist())
     inferred_audio = torch.from_numpy(synth_host.render(audio_bridge.midi_path))
-    processed_inferred_audio = SignalProcessor()(inferred_audio)
+    processed_inferred_audio = SIGNAL_PROCESSOR(inferred_audio)
 
     param_x_axis = np.arange(0, estimated_params.shape[0])
 

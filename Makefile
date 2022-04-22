@@ -9,6 +9,7 @@ PRESETS_DIR ?= data/presets
 SYNTH_PATH ?= data/synth/TAL-NoiseMaker.vst3
 
 # Benchmarks
+SIGNAL_PROCESSING ?= default
 TARGET_SYNTH ?= noisemaker
 PARAM_LIMIT ?= 32
 
@@ -139,6 +140,14 @@ mono-benchmark-setup:
 	make reset
 	make paths
 	make resources
+
+ifeq (${SIGNAL_PROCESSING},acids-ircam)
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
+		src/config/fixtures/aiflowsynth/signal_processing.py
+else
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
+		src/config/fixtures/default_signal_processing.py
+endif
 
 ifeq (${TARGET_SYNTH},diva)
 	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \

@@ -209,7 +209,7 @@ class SynthHost:
                 f" {len(plugin_parameters)} parameters."
             )
 
-        if not all(isinstance(param, float) for param in patch):
+        if not all(isinstance(param, float) or param in (0, 1) for param in patch):
             raise ValueError("Patch must be a list of floats")
 
         finalized_patch = self._enforce_locked_parameters(
@@ -233,12 +233,15 @@ class SynthHost:
             self.synth.set_patch(patch)
         return patch
 
-    def render(self, midi_path: Union[Path, str]) -> np.ndarray:
+    def render(
+        self, midi_path: Union[Path, str], repeated_renders: int = 2
+    ) -> np.ndarray:
         """
         load the midi file and and an audio file.
         """
         if not Path(midi_path).is_file():
             raise ValueError(f"{midi_path} does not exist or is not a file")
         self.synth.load_midi(str(midi_path))
-        self.engine.render(REGISTRY.SYNTH.duration)
+        for _ in range(repeated_renders):
+            self.engine.render(REGISTRY.SYNTH.duration)
         return self.engine.get_audio().transpose()

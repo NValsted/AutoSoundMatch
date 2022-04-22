@@ -1,50 +1,11 @@
-from functools import partial, reduce
+from functools import reduce
 from multiprocessing import Pool
-from typing import Tuple, Union
+from typing import Callable, Union
 
 import numpy as np
 import torch
-from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 
 from src.config.base import PYTORCH_DEVICE, REGISTRY
-
-
-class StereoToMono(torch.nn.Module):
-    """
-    Conditionally converts a stereo signal to mono.
-    """
-
-    _processor: torch.nn.Module
-
-    def __init__(self, signal_shape: Tuple):
-        super(StereoToMono, self).__init__()
-        if signal_shape[-1] == 2:
-            self._processor = partial(torch.mean, axis=-1)
-        else:
-            self._processor = torch.nn.Identity()
-
-    def forward(self, signal: torch.Tensor) -> torch.Tensor:
-        return self._processor(signal)
-
-
-class MinMax(torch.nn.Module):
-    """
-    Min-max mormalizes a signal to a given amplitude range.
-    """
-
-    _processor: torch.nn.Module
-    amplitude_min: int
-    amplitude_max: int
-
-    def __init__(self, amplitude_min: int = -1, amplitude_max: int = 1):
-        super(MinMax, self).__init__()
-        self.amplitude_min = amplitude_min
-        self.amplitude_max = amplitude_max
-
-    def forward(self, signal: torch.Tensor) -> torch.Tensor:
-        return (signal - signal.min()) / (signal.max() - signal.min()) * (
-            self.amplitude_max - self.amplitude_min
-        ) + self.amplitude_min
 
 
 class SignalProcessor:
@@ -55,36 +16,23 @@ class SignalProcessor:
 
     _processor: torch.nn.Sequential
 
-    def __init__(
-        self, safe: bool = True, signal_shape: Tuple = (None, 2), *args, **kwargs
-    ):
+    def __init__(self, safe: bool = True, *args, **kwargs):
         if safe:
             self.forward = self._safe_forward
         else:
             self.forward = self._fast_forward
 
-        pipeline = (
-            StereoToMono(signal_shape),
-            MinMax(),
-            MelSpectrogram(  # TODO: parameterize through REGISTRY
-                sample_rate=REGISTRY.SYNTH.sample_rate,
-                n_fft=2048,
-                n_mels=128,
-                hop_length=1024,
-                f_min=30,
-                f_max=11000,
-                pad=0,
-            ),
-            AmplitudeToDB(top_db=80),
-        )
+        pipeline = REGISTRY.SIGNAL_PROCESSING.pipeline
         self._processor = torch.nn.Sequential(*pipeline).to(PYTORCH_DEVICE)
+
+    fit: Callable = REGISTRY.SIGNAL_PROCESSING.fit
 
     def _safe_forward(self, signal: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
         if isinstance(signal, np.ndarray):
             signal = torch.from_numpy(signal).float().to(PYTORCH_DEVICE)
 
-        if signal.min() == 0 and signal.max() == 0:
-            raise ValueError("Signal is all zeros")
+        if signal.min() == signal.max():
+            raise ValueError(f"Signal is constant - {signal.shape=}")
 
         return self._processor(signal)
 
@@ -101,9 +49,9 @@ class SignalProcessor:
         torch.cuda.empty_cache()
         return processed_signals
 
-    @classmethod
+    @staticmethod
     def concurrent_batch_process(
-        cls, signals: list[torch.Tensor], num_workers: int = 4
+        signals: list[torch.Tensor], num_workers: int = 4
     ) -> list[torch.Tensor]:
 
         chunks = [
@@ -123,7 +71,7 @@ SIGNAL_PROCESSOR = SignalProcessor()
 
 def spectral_convergence(
     source: Union[np.ndarray, torch.Tensor], target: Union[np.ndarray, torch.Tensor]
-):
+) -> torch.Tensor:
     """
     Computes the spectral convergence of two signals, i.e. the mean magnitude-normalized
     Euclidean norm - Esling, Philippe, et al. (2019).
@@ -140,7 +88,7 @@ def spectral_convergence(
 
 def spectral_mse(
     source: Union[np.ndarray, torch.Tensor], target: Union[np.ndarray, torch.Tensor]
-):
+) -> torch.Tensor:
     """
     Computes the mean squared error of two signals.
     """

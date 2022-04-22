@@ -51,7 +51,7 @@ RUN ln -s /usr/lib/x86_64-linux-gnu/libsamplerate.so.0 /usr/local/lib/libsampler
 ENV CPLUS_INCLUDE_PATH=/usr/include/python3.9/
 
 WORKDIR /DawDreamer/dawdreamer/
-# RUN git checkout 772048dcbfb2ceb2519d9c6a77917e25970ca1db
+RUN git checkout 9d286e1171b7f4c89558e5bdb9337649d2803f53
 RUN git clone https://github.com/grame-cncm/faustlibraries.git
 
 WORKDIR /DawDreamer/Builds/LinuxMakefile/

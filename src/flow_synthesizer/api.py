@@ -11,10 +11,10 @@ from src.config.registry_sections import FlowSynthSection, TrainMetadataSection
 from src.database.dataset import FlowSynthDataset, load_formatted_audio
 from src.daw.audio_model import AudioBridgeTable
 from src.daw.factory import SynthHostFactory
+from src.daw.signal_processing import spectral_convergence, spectral_mse
 from src.flow_synthesizer.base import ModelWrapper
 from src.flow_synthesizer.factory import ModelFactory
 from src.utils.loss_model import LossTable, TrainValTestEnum
-from src.utils.signal_processing import spectral_convergence, spectral_mse
 
 
 def prepare_registry(dataset: FlowSynthDataset, commit: bool = False) -> None:

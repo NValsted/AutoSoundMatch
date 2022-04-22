@@ -1,10 +1,13 @@
 from enum import Enum, unique
 from pathlib import Path
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
+import torch
 from pydantic import BaseModel, Field
+from torchaudio.transforms import AmplitudeToDB, MelSpectrogram
 
 from src.config.paths import get_project_root, path_field_factory
+from src.daw.signal_transformers import MinMax, StereoToMono
 from src.flow_synthesizer.enums import (
     AEBaseModelEnum,
     DisentanglingModelEnum,
@@ -101,6 +104,27 @@ class TrainMetadataSection(BaseModel):
     warm_latent: int = 50
 
 
+class SignalProcessingSection(BaseModel):
+    pipeline: tuple[torch.nn.Module, ...] = (
+        StereoToMono((None, 2)),
+        MinMax(),
+        MelSpectrogram(
+            sample_rate=22050,
+            n_fft=2048,
+            n_mels=128,
+            hop_length=1024,
+            f_min=30,
+            f_max=11000,
+            pad=0,
+        ),
+        AmplitudeToDB(top_db=80),
+    )
+    fit: Optional[Callable] = None
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
 @unique
 class RegistrySectionsEnum(str, Enum):
     PATH = "PATH"
@@ -109,6 +133,7 @@ class RegistrySectionsEnum(str, Enum):
     DATASET = "DATASET"
     FLOWSYNTH = "FLOWSYNTH"
     TRAINMETA = "TRAINMETA"
+    SIGNAL_PROCESSING = "SIGNAL_PROCESSING"
 
 
 RegistrySectionsMap = dict(
@@ -118,4 +143,5 @@ RegistrySectionsMap = dict(
     DATASET=DatasetSection,
     FLOWSYNTH=FlowSynthSection,
     TRAINMETA=TrainMetadataSection,
+    SIGNAL_PROCESSING=SignalProcessingSection,
 )

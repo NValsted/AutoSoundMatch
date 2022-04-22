@@ -384,6 +384,8 @@ def generate_param_triples(
         for j in tqdm(range(pairs), leave=False):
             midi_file_path = midi_paths[(i + j) % len(midi_paths)]
 
+            synth_host = sh_factory()
+            synth_host.set_patch(preset)
             audio = synth_host.render(midi_file_path)
             audio_file_path = REGISTRY.PATH.audio / (midi_file_path.name).replace(
                 midi_file_path.suffix, f"_{i}.pt"
@@ -430,8 +432,8 @@ def process_audio(
     from src.config.base import PYTORCH_DEVICE, REGISTRY
     from src.database.factory import DBFactory
     from src.daw.audio_model import AudioBridgeTable
+    from src.daw.signal_processing import SIGNAL_PROCESSOR, SignalProcessor
     from src.daw.synth_model import SynthParamsTable  # NOQA: F401
-    from src.utils.signal_processing import SignalProcessor
 
     db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
     db = db_factory()
@@ -458,6 +460,22 @@ def process_audio(
         total_audio_bridges = session.exec(
             select(func.count()).select_from(query.subquery())
         ).all()[0]
+
+    if SIGNAL_PROCESSOR.fit is not None:
+        all_signals = []
+        for offset in tqdm(range(0, total_audio_bridges, chunk_size), leave=True):
+            with db.session() as session:
+                audio_bridges = session.exec(
+                    query.limit(chunk_size).offset(offset)
+                ).all()
+
+            all_signals.extend(
+                [
+                    torch.load(bridge.audio_path).to(PYTORCH_DEVICE)
+                    for bridge in audio_bridges
+                ]
+            )
+        SIGNAL_PROCESSOR.fit(all_signals)
 
     for offset in tqdm(range(0, total_audio_bridges, chunk_size), leave=True):
         with db.session() as session:
