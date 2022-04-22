@@ -45,8 +45,7 @@ def fit(self: "SignalProcessor", signals: list[torch.Tensor]):
 
     mean = float(mean)
     std = float((std / len(signals)) ** (1 / 2))
-    print(mean, std)
-    breakpoint()
+
     self._processor = (
         *tmp_pipeline,
         ZScoreNormalize(mean, std),
