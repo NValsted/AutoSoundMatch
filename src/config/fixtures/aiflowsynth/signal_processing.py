@@ -1,16 +1,16 @@
 from typing import TYPE_CHECKING
 
-import torch
 from torchaudio.transforms import MelSpectrogram
 
 from src.config.registry_sections import SignalProcessingSection
 from src.daw.signal_transformers import LogTransform, StereoToMono, ZScoreNormalize
 
 if TYPE_CHECKING:
+    from src.daw.audio_model import AudioBridgeTable
     from src.daw.signal_processing import SignalProcessor
 
 
-def fit(self: "SignalProcessor", signals: list[torch.Tensor]):
+def fit(self: "SignalProcessor", audio_bridges: list["AudioBridgeTable"]):
     import torch
     from torchaudio.transforms import MelSpectrogram
 
@@ -35,7 +35,8 @@ def fit(self: "SignalProcessor", signals: list[torch.Tensor]):
     # References https://github.com/acids-ircam/flow_synthesizer/blob/47abcca360ea3e2a4104855e30d6e548d207e802/code/utils/data.py  # NOQA : E501
     mean = 0
     std = 0
-    for i, signal in enumerate(signals):
+    for i, bridge in enumerate(audio_bridges):
+        signal = torch.load(bridge.audio_path, map_location=PYTORCH_DEVICE)
         processed = tmp_processor(signal)
         tmp_mean = processed.mean()
         tmp_dev = processed - mean
@@ -44,12 +45,10 @@ def fit(self: "SignalProcessor", signals: list[torch.Tensor]):
         std += ((processed - mean) * tmp_dev).mean()
 
     mean = float(mean)
-    std = float((std / len(signals)) ** (1 / 2))
+    std = float((std / len(audio_bridges)) ** (1 / 2))
 
-    self._processor = (
-        *tmp_pipeline,
-        ZScoreNormalize(mean, std),
-    )
+    pipeline = (*tmp_pipeline, ZScoreNormalize(mean, std))
+    self._processor = torch.nn.Sequential(*pipeline).to(PYTORCH_DEVICE)
 
 
 signal_processing_section = SignalProcessingSection(

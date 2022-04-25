@@ -1,6 +1,6 @@
 from functools import reduce
 from multiprocessing import Pool
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import torch
@@ -25,7 +25,7 @@ class SignalProcessor:
         pipeline = REGISTRY.SIGNAL_PROCESSING.pipeline
         self._processor = torch.nn.Sequential(*pipeline).to(PYTORCH_DEVICE)
 
-    fit: Callable = REGISTRY.SIGNAL_PROCESSING.fit
+    fit: Optional[Callable] = REGISTRY.SIGNAL_PROCESSING.fit
 
     def _safe_forward(self, signal: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
         if isinstance(signal, np.ndarray):

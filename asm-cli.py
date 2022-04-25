@@ -384,7 +384,6 @@ def generate_param_triples(
         for j in tqdm(range(pairs), leave=False):
             midi_file_path = midi_paths[(i + j) % len(midi_paths)]
 
-            synth_host = sh_factory()
             synth_host.set_patch(preset)
             audio = synth_host.render(midi_file_path)
             audio_file_path = REGISTRY.PATH.audio / (midi_file_path.name).replace(
@@ -462,27 +461,27 @@ def process_audio(
         ).all()[0]
 
     if SIGNAL_PROCESSOR.fit is not None:
-        all_signals = []
+        train_bridges = []
         for offset in tqdm(range(0, total_audio_bridges, chunk_size), leave=True):
             with db.session() as session:
                 audio_bridges = session.exec(
                     query.limit(chunk_size).offset(offset)
                 ).all()
-
-            all_signals.extend(
-                [
-                    torch.load(bridge.audio_path).to(PYTORCH_DEVICE)
-                    for bridge in audio_bridges
-                ]
+            train_bridges.extend(
+                [bridge for bridge in audio_bridges if not bridge.test_flag]
             )
-        SIGNAL_PROCESSOR.fit(all_signals)
+
+        SIGNAL_PROCESSOR.fit(train_bridges)
+        REGISTRY.SIGNAL_PROCESSING.pipeline = tuple(SIGNAL_PROCESSOR._processor)
+        REGISTRY.commit()
 
     for offset in tqdm(range(0, total_audio_bridges, chunk_size), leave=True):
         with db.session() as session:
             audio_bridges = session.exec(query.limit(chunk_size).offset(offset)).all()
 
         signals = [
-            torch.load(bridge.audio_path).to(PYTORCH_DEVICE) for bridge in audio_bridges
+            torch.load(bridge.audio_path, map_location=PYTORCH_DEVICE)
+            for bridge in audio_bridges
         ]
 
         if PYTORCH_DEVICE.type == "cpu":
