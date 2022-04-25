@@ -9,6 +9,7 @@ app = typer.Typer()
 def setup_paths(
     downloads: Optional[str] = typer.Option(None),
     presets: Optional[str] = typer.Option(None),
+    genetic: Optional[str] = typer.Option(None),
     model: Optional[str] = typer.Option(None),
     audio: Optional[str] = typer.Option(None),
     midi: Optional[str] = typer.Option(None),
@@ -24,6 +25,8 @@ def setup_paths(
         path_kwargs["downloads"] = downloads
     if presets is not None:
         path_kwargs["presets"] = presets
+    if genetic is not None:
+        path_kwargs["genetic"] = genetic
     if model is not None:
         path_kwargs["model"] = model
     if audio is not None:
@@ -574,6 +577,24 @@ def test_model(model_path: Optional[str] = typer.Option(None)):
     test_dataset = FlowSynthDataset(db, test_flag=True)
 
     losses = evaluate_inference(model, test_dataset.audio_bridges)
+    db.add(losses)
+
+
+@app.command()
+def test_genetic_algorithm(test_limit: int = typer.Option(500)):
+    from src.config.base import REGISTRY
+    from src.database.dataset import FlowSynthDataset
+    from src.database.factory import DBFactory
+    from src.genetic.evaluation import evaluate_ga
+
+    db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
+    db = db_factory()
+    test_dataset = FlowSynthDataset(db, test_flag=True)
+
+    losses = evaluate_ga(
+        audio_bridges=test_dataset.audio_bridges,
+        test_limit=test_limit,
+    )
     db.add(losses)
 
 

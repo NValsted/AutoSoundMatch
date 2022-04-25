@@ -3,6 +3,7 @@ PYTHON_INTERPRETER_PATH ?= poetry run python
 MIDI_DIR ?= data/midi
 AUDIO_DIR ?= data/audio
 MODEL_DIR ?= data/model
+GENETIC_DIR ?= data/genetic
 DOWNLOADS_DIR ?= data/downloads
 
 PRESETS_DIR ?= data/presets
@@ -40,7 +41,8 @@ paths:
 		--audio ${AUDIO_DIR} \
 		--model ${MODEL_DIR} \
 		--downloads ${DOWNLOADS_DIR} \
-		--presets ${PRESETS_DIR}
+		--presets ${PRESETS_DIR} \
+		--genetic ${GENETIC_DIR}
 
 resources:
 	@if [ ! -d "${DOWNLOADS_DIR}/msmd_real_performances" ]; \
@@ -115,6 +117,12 @@ prepare-data:
 	make midi-partitions
 	make dataset
 
+genetic:
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
+		src/config/fixtures/genetic.py
+	${PYTHON_INTERPRETER_PATH} asm-cli.py test-genetic-algorithm \
+		--test-limit 7
+
 model:
 	${PYTHON_INTERPRETER_PATH} asm-cli.py train-model
 
@@ -135,6 +143,14 @@ figures:
 	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py spectral-loss-distplot --latest
 	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py tsne-latent-space
 	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py inference-comparison
+
+model-suite:
+	for fxt in ae cnn flowreg mlp resnet vae wae vaeflow ; do \
+		${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
+			src/config/fixtures/aiflowsynth/$${fxt}.py; \
+		make model; \
+		make evaluate; \
+	done
 
 mono-benchmark-setup:
 	make reset
@@ -192,14 +208,7 @@ endif
 
 	${PYTHON_INTERPRETER_PATH} asm-cli.py process-audio
 
-mono-benchmark-models:
-	for fxt in ae cnn flowreg mlp resnet vae wae vaeflow ; do \
-		${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
-			src/config/fixtures/aiflowsynth/$${fxt}.py; \
-		make model; \
-		make evaluate; \
-	done
-
 mono-benchmark:
 	make mono-benchmark-setup
-	make mono-benchmark-models
+	make model-suite
+	make genetic

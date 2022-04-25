@@ -11,6 +11,7 @@ from src.config.registry_sections import (
     DatabaseSection,
     DatasetSection,
     FlowSynthSection,
+    GeneticAlgorithmSection,
     PathSection,
     RegistrySectionsMap,
     SignalProcessingSection,
@@ -33,6 +34,7 @@ class Registry(BaseModel):
     DATASET: Optional[DatasetSection] = None
     FLOWSYNTH: Optional[FlowSynthSection] = None
     TRAINMETA: Optional[TrainMetadataSection] = None
+    GENETIC: Optional[GeneticAlgorithmSection] = None
     SIGNAL_PROCESSING: Optional[SignalProcessingSection] = None
 
     def is_modified(self) -> bool:

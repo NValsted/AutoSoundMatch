@@ -24,6 +24,7 @@ class PathSection(BaseModel):
     project_root: Path = Field(default_factory=get_project_root)
     downloads: Path = path_field_factory(get_project_root() / "data" / "downloads")
     presets: Path = path_field_factory(get_project_root() / "data" / "presets")
+    genetic: Path = path_field_factory(get_project_root() / "data" / "genetic")
     model: Path = path_field_factory(get_project_root() / "data" / "model")
     audio: Path = path_field_factory(get_project_root() / "data" / "audio")
     midi: Path = path_field_factory(get_project_root() / "data" / "midi")
@@ -104,6 +105,16 @@ class TrainMetadataSection(BaseModel):
     warm_latent: int = 50
 
 
+class GeneticAlgorithmSection(BaseModel):
+    out_dim: int = 32
+    population_size: int = 500
+    max_generations: int = 3000
+    crossover_probability: float = 1.0
+    mutation_probability: float = 1.0
+    time_limit: int = 2 * 60
+    patience: int = 200
+
+
 class SignalProcessingSection(BaseModel):
     pipeline: tuple[torch.nn.Module, ...] = (
         StereoToMono((None, 2)),
@@ -133,6 +144,7 @@ class RegistrySectionsEnum(str, Enum):
     DATASET = "DATASET"
     FLOWSYNTH = "FLOWSYNTH"
     TRAINMETA = "TRAINMETA"
+    GENETIC = "GENETIC"
     SIGNAL_PROCESSING = "SIGNAL_PROCESSING"
 
 
@@ -143,5 +155,6 @@ RegistrySectionsMap = dict(
     DATASET=DatasetSection,
     FLOWSYNTH=FlowSynthSection,
     TRAINMETA=TrainMetadataSection,
+    GENETIC=GeneticAlgorithmSection,
     SIGNAL_PROCESSING=SignalProcessingSection,
 )
