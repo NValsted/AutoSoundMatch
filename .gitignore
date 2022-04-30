@@ -133,3 +133,6 @@ dmypy.json
 
 # Local data
 data/
+
+# Poetry
+poetry.lock

@@ -16,6 +16,8 @@ PARAM_LIMIT ?= 32
 
 DOCKER_IMAGE ?= nvalsted/autosoundmatch:latest
 
+.PHONY: nvidia-container-toolkit build-image run-image-interactive paths resources clear-resources tables midi-partitions dataset prepare-data genetic model evaluate reset inspect model-suite synth-dsp-fixtures mono-benchmark-setup poly-benchmark-setup mono-benchmark poly-benchmark
+
 nvidia-container-toolkit:  # Should work for Ubuntu and Debian - Otherwise, see: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 	distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
 	&& curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
@@ -78,7 +80,16 @@ ifeq ($(OS),Windows_NT)
 else ifeq ($(OS),Darwin)
 	@echo "Not implemented - synth can be manually downloaded from https://tal-software.com//downloads/plugins/tal-noisemaker-installer.pkg"
 else
-	@echo "Not implemented - synth can be manually downloaded from https://tal-software.com/downloads/plugins/TAL-NoiseMaker_64_linux.zip"
+	@if [ ! -f "${SYNTH_PATH}" ];
+	then \
+		wget https://tal-software.com/downloads/plugins/TAL-NoiseMaker_64_linux.zip -O ${DOWNLOADS_DIR}/TAL-NoiseMaker_64_linux.zip && \
+		unzip ${DOWNLOADS_DIR}/TAL-NoiseMaker_64_linux.zip "libTAL-NoiseMaker.so" -d ${DOWNLOADS_DIR} && \
+		mkdir -p ${SYNTH_PATH} && \
+		mv ${DOWNLOADS_DIR}/libTAL-NoiseMaker.so ${SYNTH_PATH} && \
+		rm ${DOWNLOADS_DIR}/TAL-NoiseMaker_64_linux.zip; \
+	else \
+		echo "Synth already installed."; \
+	fi
 endif
 
 	@if ls ${PRESETS_DIR}/*TAL.vstpreset > /dev/null 2>&1; \
@@ -121,7 +132,7 @@ genetic:
 	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/genetic.py
 	${PYTHON_INTERPRETER_PATH} asm-cli.py test-genetic-algorithm \
-		--test-limit 7
+		--test-limit 128
 
 model:
 	${PYTHON_INTERPRETER_PATH} asm-cli.py train-model
@@ -138,12 +149,6 @@ inspect:
 	@${PYTHON_INTERPRETER_PATH} -c "import warnings; warnings.filterwarnings('ignore'); from torch.cuda import is_available; print('USING GPU' if is_available() else 'USING CPU')"
 	${PYTHON_INTERPRETER_PATH} asm-cli.py inspect-registry
 
-figures:
-	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py train-val-loss --latest
-	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py spectral-loss-distplot --latest
-	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py tsne-latent-space
-	${PYTHON_INTERPRETER_PATH} src/graphics/cli.py inference-comparison
-
 model-suite:
 	for fxt in ae cnn flowreg mlp resnet vae wae vaeflow ; do \
 		${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
@@ -152,11 +157,7 @@ model-suite:
 		make evaluate; \
 	done
 
-mono-benchmark-setup:
-	make reset
-	make paths
-	make resources
-
+synth-dsp-fixtures:
 ifeq (${SIGNAL_PROCESSING},acids-ircam)
 	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 		src/config/fixtures/aiflowsynth/signal_processing.py
@@ -183,6 +184,12 @@ else
 		src/config/fixtures/synth.py
 endif
 
+mono-benchmark-setup:
+	make reset
+	make paths
+	make resources
+	make synth-dsp-fixtures
+
 	${PYTHON_INTERPRETER_PATH} asm-cli.py setup-relational-models \
 		--engine-url "sqlite:///data/local.db"
 	${PYTHON_INTERPRETER_PATH} asm-cli.py mono-setup
@@ -208,7 +215,43 @@ endif
 
 	${PYTHON_INTERPRETER_PATH} asm-cli.py process-audio
 
+poly-benchmark-setup:
+	make reset
+	make paths
+	make resources
+	make synth-dsp-fixtures
+
+	${PYTHON_INTERPRETER_PATH} asm-cli.py setup-relational-models \
+		--engine-url "sqlite:///data/local.db"
+	make midi-partitions
+
+ifeq (${TARGET_SYNTH},diva)
+	${PYTHON_INTERPRETER_PATH} asm-cli.py generate-param-triples \
+		--num-presets 3000 \
+		--num-midi 500 \
+		--pairs 4 \
+		--preset-glob "*.json"
+else ifeq (${TARGET_SYNTH},noisemaker)
+	${PYTHON_INTERPRETER_PATH} asm-cli.py generate-param-triples \
+		--num-presets 3000 \
+		--num-midi 500 \
+		--pairs 4 \
+		--preset-glob "*.vstpreset"
+else
+	${PYTHON_INTERPRETER_PATH} asm-cli.py generate-param-triples \
+		--num-presets 3000 \
+		--num-midi 500 \
+		--pairs 4
+endif
+
+	${PYTHON_INTERPRETER_PATH} asm-cli.py process-audio
+
 mono-benchmark:
 	make mono-benchmark-setup
+	make model-suite
+	make genetic
+
+poly-benchmark:
+	make poly-benchmark-setup
 	make model-suite
 	make genetic
