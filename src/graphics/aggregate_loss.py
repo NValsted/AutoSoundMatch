@@ -1,6 +1,7 @@
 import pandas as pd
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
+from deap.tools import Logbook
 from plotly.graph_objs._figure import Figure
 from plotly.subplots import make_subplots
 
@@ -145,5 +146,27 @@ def spectral_loss_distplot(model_id: str) -> Figure:
     fig["layout"]["yaxis3"].update(domain=[0, 0.05])
     fig["layout"]["yaxis2"].update(domain=[0.1, 1])
     fig["layout"]["yaxis4"].update(domain=[0, 0.05])
+
+    return fig
+
+
+def fitness_evolution(logbook: Logbook) -> Figure:
+    fig = make_subplots(
+        rows=3,
+        shared_xaxes=True,
+        subplot_titles=("FFT", "STFT", "Envelope"),
+        vertical_spacing=0.05,
+    )
+    for i in range(3):
+        fig.add_trace(
+            go.Scatter(
+                x=[record["gen"] for record in logbook],
+                y=[record["min"][i] for record in logbook],
+                name="Min euclidean norm",
+                line_color="rgb(21,151,187)",
+            ),
+            row=i + 1,
+            col=1,
+        )
 
     return fig

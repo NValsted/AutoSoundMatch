@@ -34,16 +34,12 @@ def save_run(
     REGISTRY.add_blob(logbook_path)
 
 
-def exec_evaluation(
-    bridge: AudioBridgeTable, write_audio: bool = False, monophonic: bool = False
-) -> tuple[LossTable, LossTable]:
-    nsga2_factory = NSGA2Factory(
-        out_dim=REGISTRY.GENETIC.out_dim,
-        population_size=REGISTRY.GENETIC.population_size,
-        max_generations=REGISTRY.GENETIC.max_generations,
-        crossover_probability=REGISTRY.GENETIC.crossover_probability,
-        mutation_probability=REGISTRY.GENETIC.mutation_probability,
-    )
+def evaluate_population(
+    bridge: AudioBridgeTable,
+    simplified_population: list[SimplifiedIndividual],
+    write_audio: bool = False,
+    monophonic: bool = False,
+) -> list[LossTable]:
     sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
     synth_host = sh_factory()
 
@@ -51,26 +47,16 @@ def exec_evaluation(
         raise NotImplementedError
 
     _, target_signal = load_formatted_audio(bridge.audio_path)
-    nsga2 = nsga2_factory()
-    population, logbook = nsga2(
-        audio_bridge=bridge,
-        time_limit=REGISTRY.GENETIC.time_limit,
-        patience=REGISTRY.GENETIC.patience,
-    )
-    simplified_population = [
-        SimplifiedIndividual.from_individual(ind) for ind in population
-    ]
-
-    save_run(bridge, simplified_population, logbook)
-
     pareto_optimal_solutions = pareto_front(simplified_population)
 
     if write_audio:
+        file_path = bridge.audio_path.replace(".pt", ".wav")
         wavfile.write(
-            bridge.audio_path.replace(".pt", ".wav"),
+            file_path,
             REGISTRY.SYNTH.sample_rate,
             target_signal.cpu().numpy(),
         )
+        REGISTRY.add_blob(file_path)
 
     evaluations = defaultdict(list)
 
@@ -79,11 +65,13 @@ def exec_evaluation(
         inferred_audio = synth_host.render(bridge.midi_path)
 
         if write_audio:
+            file_path = bridge.audio_path.replace(".pt", f"_inferred_{i}.wav")
             wavfile.write(
-                bridge.audio_path.replace(".pt", f"_inferred_{i}.wav"),
+                file_path,
                 REGISTRY.SYNTH.sample_rate,
                 inferred_audio,
             )
+            REGISTRY.add_blob(file_path)
 
         for loss_callable in (spectral_convergence, spectral_mse):
             loss = loss_callable(inferred_audio, target_signal)
@@ -99,6 +87,39 @@ def exec_evaluation(
         )
 
         losses.append(loss_model)
+
+    return losses
+
+
+def exec_run(
+    bridge: AudioBridgeTable, write_audio: bool = False, monophonic: bool = False
+) -> tuple[LossTable, LossTable]:
+    nsga2_factory = NSGA2Factory(
+        out_dim=REGISTRY.GENETIC.out_dim,
+        population_size=REGISTRY.GENETIC.population_size,
+        max_generations=REGISTRY.GENETIC.max_generations,
+        crossover_probability=REGISTRY.GENETIC.crossover_probability,
+        mutation_probability=REGISTRY.GENETIC.mutation_probability,
+    )
+
+    nsga2 = nsga2_factory()
+    population, logbook = nsga2(
+        audio_bridge=bridge,
+        time_limit=REGISTRY.GENETIC.time_limit,
+        patience=REGISTRY.GENETIC.patience,
+    )
+    simplified_population = [
+        SimplifiedIndividual.from_individual(ind) for ind in population
+    ]
+
+    save_run(bridge, simplified_population, logbook)
+
+    losses = evaluate_population(
+        bridge=bridge,
+        simplified_population=simplified_population,
+        write_audio=write_audio,
+        monophonic=monophonic,
+    )
     return losses
 
 
@@ -114,7 +135,7 @@ def evaluate_ga(
 
     with Pool() as p:
         loss_pairs = p.map(
-            partial(exec_evaluation, write_audio=write_audio, monophonic=monophonic),
+            partial(exec_run, write_audio=write_audio, monophonic=monophonic),
             audio_bridges,
         )
 

@@ -67,6 +67,33 @@ def spectral_loss_distplot(
 
 
 @app.command()
+def fitness_evolution(logbook_path: Optional[str] = typer.Option(None)):
+    import dill
+
+    from src.config.base import REGISTRY
+    from src.graphics.aggregate_loss import fitness_evolution
+
+    if logbook_path is None:
+        logbook_paths = list(REGISTRY.PATH.genetic.glob("*logbook.pkl"))
+        formatted = "\n".join([f"{i}: {m_id}" for i, m_id in enumerate(logbook_paths)])
+        response = typer.prompt(
+            f"Available logbooks (truncated, provide number)\n{formatted}"
+        )
+
+        if response.isdigit() and int(response) < len(logbook_paths):
+            logbook_path = logbook_paths[int(response)]
+        else:
+            raise ValueError(f"Invalid response: {response}")
+
+    logbook_path: str
+    with open(logbook_path, "rb") as f:
+        logbook = dill.load(f)
+
+    fig = fitness_evolution(logbook=logbook)
+    fig.show()
+
+
+@app.command()
 def pca_latent_space(model_path: Optional[str] = typer.Option(None)):
     from src.config.base import REGISTRY
     from src.flow_synthesizer.base import ModelWrapper

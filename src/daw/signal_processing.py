@@ -98,3 +98,11 @@ def spectral_mse(
     squared_diff = torch.pow(target - source, 2)
     mse = torch.mean(squared_diff)
     return mse
+
+
+def silent_signal(
+    signal: Union[np.ndarray, torch.Tensor], threshold: float = 1e-03
+) -> bool:
+    if signal.max() - signal.min() < threshold:
+        return True
+    return False

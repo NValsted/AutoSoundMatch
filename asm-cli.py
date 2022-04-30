@@ -318,6 +318,7 @@ def generate_param_triples(
     from src.database.factory import DBFactory
     from src.daw.audio_model import AudioBridgeTable
     from src.daw.factory import SynthHostFactory
+    from src.daw.signal_processing import silent_signal
     from src.midi.generation import generate_midi
 
     sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
@@ -396,12 +397,11 @@ def generate_param_triples(
             try:
                 valid_audio(audio)
                 audio_as_tensor = torch.from_numpy(audio).float()
-                if audio_as_tensor.min() == 0 and audio_as_tensor.max() == 0:
+                if silent_signal(audio_as_tensor, threshold=1e-3):
                     raise ParameterError
 
             except ParameterError:
                 typer.echo(f"Skipping invalid audio: {audio_file_path}")
-                synth_host = sh_factory()
                 continue
 
             torch.save(audio_as_tensor, audio_file_path)
@@ -596,6 +596,44 @@ def test_genetic_algorithm(test_limit: int = typer.Option(500)):
         test_limit=test_limit,
     )
     db.add(losses)
+
+
+@app.command()
+def evaluate_ga_populations():
+    import dill
+    from sqlmodel import select
+
+    from src.config.base import REGISTRY
+    from src.database.factory import DBFactory
+    from src.daw.audio_model import AudioBridgeTable
+    from src.genetic.base import SimplifiedIndividual
+    from src.genetic.evaluation import evaluate_population
+
+    population_paths = REGISTRY.PATH.genetic.glob("*population.pkl")
+
+    db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
+    db = db_factory()
+
+    pairs: list[tuple[AudioBridgeTable, list[SimplifiedIndividual]]] = []
+    with db.session() as session:
+        for path in population_paths:
+            like_str = "%" + path.name.replace("_population.pkl", ".pt")
+            print(like_str)
+            query = select(AudioBridgeTable).where(
+                AudioBridgeTable.audio_path.like(like_str)
+            )
+            matches = session.exec(query).all()
+            if len(matches) > 1:
+                raise ValueError(
+                    f"Found {len(matches)} matches for {path} - expected at most 1"
+                )
+            with path.open("rb") as f:
+                population = dill.load(f)
+            pairs.append((matches[0], population))
+
+    for pair in pairs:
+        losses = evaluate_population(bridge=pair[0], simplified_population=pair[1])
+        db.add(losses)
 
 
 @app.command()

@@ -9,6 +9,8 @@ RUN apt install python3.9 -yq
 RUN ln -s /usr/bin/python3.9 /usr/bin/python
 
 RUN apt-get update -yq && apt-get install -yq \
+    wget \
+    nano \
     curl \
     git \
     make \
