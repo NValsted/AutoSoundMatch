@@ -7,7 +7,10 @@ from typing import Optional, TypeVar
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.schema import Table
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session, SQLModel, select
+
+from src.daw.audio_model import AudioBridgeTable
+from src.daw.synth_model import SynthParamsTable
 
 ModelType = TypeVar("ModelType", bound=SQLModel)
 
@@ -50,3 +53,11 @@ class Database:
                     raise err
                 sleep(delay)
                 delay *= 2
+
+    def get_synth_params(self, audio_bridge: AudioBridgeTable) -> list[float]:
+        with self.session() as session:
+            query = select(SynthParamsTable.__table__).filter(
+                SynthParamsTable.id == audio_bridge.synth_params
+            )
+            params = session.execute(query).first()[1:]
+        return params

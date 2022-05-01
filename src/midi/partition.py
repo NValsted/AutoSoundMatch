@@ -15,6 +15,9 @@ class MidiProperties:
     max_silence_ratio: Optional[float] = None  # per partition ratio of silence
     min_voices: Optional[int] = None
     max_voices: Optional[int] = None
+    notes_only: bool = True
+    highest_note: int = 96
+    lowest_note: int = 36
 
 
 @dataclass
@@ -65,7 +68,7 @@ class MidiPartition:
                 remaining_ticks = 0
                 self._messages.append(off_message)
 
-    def parse_message(self, message_deque: deque[Message]):
+    def parse_message(self, message_deque: deque[Message], mono_channel: bool = True):
         message = message_deque.popleft()
 
         if self._tick_acc + message.time > self._total_ticks:
@@ -85,11 +88,14 @@ class MidiPartition:
             if len(self._active_notes[message.note]) > 0:
                 self._active_notes[message.note].popleft()
 
+        if mono_channel and hasattr(message, "channel"):
+            message.channel = 0
+
         self._messages.append(message)
 
-    def finalize(self) -> Optional[MidiFile]:
+    def finalize(self, min_velocity: int = 10) -> Optional[MidiFile]:
         for message in self._messages:
-            if message.type == "note_on":
+            if message.type == "note_on" and message.velocity >= min_velocity:
                 break
         else:
             return None
@@ -110,7 +116,7 @@ class MidiPartition:
 
     @classmethod
     def partition_file(
-        cls, file: MidiFile, strategy: BoundaryStrategy
+        cls, file: MidiFile, strategy: BoundaryStrategy, mono_channel: bool = True
     ) -> list["MidiPartition"]:
         partitions = []
 
@@ -128,7 +134,7 @@ class MidiPartition:
             message_deque = deque(track)
             while len(message_deque) > 0:
                 try:
-                    active_partition.parse_message(message_deque)
+                    active_partition.parse_message(message_deque, mono_channel)
                 except StopIteration:
                     partitions.append(active_partition)
                     active_partition = MidiPartition(
@@ -156,6 +162,19 @@ class MidiPartition:
 
         while len(message_deque) > 0:
             try:
+                next_msg = message_deque[-1]
+                if properties.notes_only and next_msg.type not in (
+                    "note_on",
+                    "note_off",
+                ):
+                    raise UnconformingPartitionError
+
+                if (
+                    next_msg.note > properties.highest_note
+                    or next_msg.note < properties.lowest_note
+                ):
+                    raise UnconformingPartitionError
+
                 partition_processor.parse_message(message_deque)
                 if partition_processor.tick_acc != prev_tick_acc:
                     ticks = partition_processor.tick_acc - prev_tick_acc

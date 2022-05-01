@@ -124,6 +124,8 @@ dataset:
 	${PYTHON_INTERPRETER_PATH} asm-cli.py process-audio
 
 prepare-data:
+	${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
+		src/config/fixtures/default_signal_processing.py
 	make tables
 	make midi-partitions
 	make dataset
@@ -227,19 +229,19 @@ poly-benchmark-setup:
 
 ifeq (${TARGET_SYNTH},diva)
 	${PYTHON_INTERPRETER_PATH} asm-cli.py generate-param-triples \
-		--num-presets 3000 \
+		--num-presets 2750 \
 		--num-midi 500 \
 		--pairs 4 \
 		--preset-glob "*.json"
 else ifeq (${TARGET_SYNTH},noisemaker)
 	${PYTHON_INTERPRETER_PATH} asm-cli.py generate-param-triples \
-		--num-presets 3000 \
+		--num-presets 2750 \
 		--num-midi 500 \
 		--pairs 4 \
 		--preset-glob "*.vstpreset"
 else
 	${PYTHON_INTERPRETER_PATH} asm-cli.py generate-param-triples \
-		--num-presets 3000 \
+		--num-presets 2750 \
 		--num-midi 500 \
 		--pairs 4
 endif

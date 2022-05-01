@@ -101,7 +101,7 @@ def spectral_mse(
 
 
 def silent_signal(
-    signal: Union[np.ndarray, torch.Tensor], threshold: float = 1e-03
+    signal: Union[np.ndarray, torch.Tensor], threshold: float = 1e-04
 ) -> bool:
     if signal.max() - signal.min() < threshold:
         return True

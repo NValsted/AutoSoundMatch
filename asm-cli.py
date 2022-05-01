@@ -372,7 +372,6 @@ def generate_param_triples(
     presets = presets[:num_presets]
 
     for i, preset in enumerate(tqdm(presets, leave=True)):
-
         synth_host.set_patch(preset)
         synth_params = synth_host.get_patch_as_model(table=True)
         synth_params_id = synth_params.id
@@ -394,16 +393,25 @@ def generate_param_triples(
                 midi_file_path.suffix, f"_{i}.pt"
             )
 
-            try:
-                valid_audio(audio)
-                audio_as_tensor = torch.from_numpy(audio).float()
-                if silent_signal(audio_as_tensor, threshold=1e-3):
-                    raise ParameterError
-
-            except ParameterError:
+            attempts_left = 2
+            while attempts_left:
+                attempts_left -= 1
+                try:
+                    valid_audio(audio)
+                    if silent_signal(audio, threshold=1e-4):
+                        raise ParameterError
+                    break
+                except ParameterError:
+                    synth_host.random_patch(apply=True)
+                    synth_params = synth_host.get_patch_as_model(table=True)
+                    synth_params_id = synth_params.id
+                    db.safe_add([synth_params])
+                    audio = synth_host.render(midi_file_path)
+            else:
                 typer.echo(f"Skipping invalid audio: {audio_file_path}")
                 continue
 
+            audio_as_tensor = torch.from_numpy(audio).float()
             torch.save(audio_as_tensor, audio_file_path)
             REGISTRY.add_blob(audio_file_path)
 
@@ -567,6 +575,11 @@ def test_model(model_path: Optional[str] = typer.Option(None)):
     from src.database.factory import DBFactory
     from src.flow_synthesizer.api import evaluate_inference
     from src.flow_synthesizer.base import ModelWrapper
+
+    if model_path is None and REGISTRY.FLOWSYNTH.active_model_path is None:
+        raise ValueError(
+            f"Model path not specified and {REGISTRY.FLOWSYNTH.active_model_path=}"
+        )
 
     model = ModelWrapper.load(
         REGISTRY.FLOWSYNTH.active_model_path if model_path is None else Path(model_path)

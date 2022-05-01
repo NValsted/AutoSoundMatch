@@ -1,6 +1,7 @@
 import json
 from typing import Optional
 
+import numpy as np
 import torch
 from scipy.io import wavfile
 from tqdm import tqdm
@@ -9,11 +10,13 @@ from src.config.base import REGISTRY
 from src.config.paths import get_project_root
 from src.config.registry_sections import FlowSynthSection, TrainMetadataSection
 from src.database.dataset import FlowSynthDataset, load_formatted_audio
+from src.database.factory import DBFactory
 from src.daw.audio_model import AudioBridgeTable
 from src.daw.factory import SynthHostFactory
 from src.daw.signal_processing import spectral_convergence, spectral_mse
 from src.flow_synthesizer.base import ModelWrapper
 from src.flow_synthesizer.factory import ModelFactory
+from src.midi.generation import mono_midi
 from src.utils.loss_model import LossTable, TrainValTestEnum
 
 
@@ -79,39 +82,56 @@ def get_model(
     return model
 
 
+def _write_audio(bridge: AudioBridgeTable, signal: np.ndarray, replace_pattern: str):
+    file_path = bridge.audio_path.replace(".pt", replace_pattern)
+    wavfile.write(
+        file_path,
+        REGISTRY.SYNTH.sample_rate,
+        signal,
+    )
+    REGISTRY.add_blob(file_path)
+
+
 def evaluate_inference(
     model: ModelWrapper,
     audio_bridges: list[AudioBridgeTable],
     write_audio: bool = False,
-    monophonic: bool = False,
+    monophonic: bool = True,
 ) -> list[LossTable]:
     sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
     synth_host = sh_factory()
 
-    losses = []
+    db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
+    db = db_factory()
 
-    if monophonic:
-        raise NotImplementedError
+    losses = []
 
     for bridge in tqdm(audio_bridges):
         formatted_signal, target_signal = load_formatted_audio(bridge.audio_path)
         with torch.no_grad():
             estimated_params = model(formatted_signal)[0]
 
-        synth_host.set_patch(estimated_params.tolist())
-        inferred_audio = synth_host.render(bridge.midi_path)
+        if write_audio:
+            _write_audio(bridge, target_signal.cpu().numpy(), ".wav")
+
+        if monophonic:
+            synth_params = db.get_synth_params(bridge)
+            midi_file_path = mono_midi(as_file_path=True)
+
+            synth_host.set_patch(synth_params)
+            target_signal = synth_host.render(midi_file_path)
+            synth_host.set_patch(estimated_params.tolist())
+            inferred_audio = synth_host.render(midi_file_path)
+
+            if write_audio:
+                _write_audio(bridge, target_signal, "_mono.wav")
+
+        else:
+            synth_host.set_patch(estimated_params.tolist())
+            inferred_audio = synth_host.render(bridge.midi_path)
 
         if write_audio:
-            wavfile.write(
-                bridge.audio_path.replace(".pt", "_inferred.wav"),
-                REGISTRY.SYNTH.sample_rate,
-                inferred_audio,
-            )
-            wavfile.write(
-                bridge.audio_path.replace(".pt", ".wav"),
-                REGISTRY.SYNTH.sample_rate,
-                target_signal.cpu().numpy(),
-            )
+            _write_audio(bridge, inferred_audio, "_inferred.wav")
 
         for loss_callable in (spectral_convergence, spectral_mse):
             loss = loss_callable(inferred_audio, target_signal)

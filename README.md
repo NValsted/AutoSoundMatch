@@ -44,7 +44,7 @@ The dependencies are available in the `pyproject.toml` file if you wish to use a
 
 ## Run
 A python-driven CLI is provided with `asm-cli.py`, which defines useful routines for managing data and training/evaluating models and the NSGA-II algorithm.
-An even higher-level interface is provided with make targets in the Makefile. To setup and run the entire experiment in the monophonic setting, simply run the following command from the root of this repo:
+An even higher-level interface is provided with make targets in the Makefile. To setup and run the entire experiment in the monophonic setting, simply run the following command from the root of this repo (make sure you've also fetched submodules):
 
 ```bash
 make mono-benchmark

@@ -1,6 +1,8 @@
 import random
 from pathlib import Path
+from tempfile import gettempdir
 from typing import Optional, Union
+from uuid import uuid4
 
 from mido import MidiFile, bpm2tempo, second2tick
 from scipy.stats import randint, truncnorm
@@ -61,7 +63,7 @@ def generate_midi(
         REGISTRY.add_blob(save_path)
 
 
-def mono_midi(note: int = 60) -> MidiFile:
+def mono_midi(note: int = 60, as_file_path: bool = False) -> MidiFile:
     """
     Generate a MIDI partition with a single MIDI note.
     """
@@ -76,5 +78,10 @@ def mono_midi(note: int = 60) -> MidiFile:
     )
     track = ASMMidiTrack.from_notes([midi_note])
     file.tracks.append(track)
+
+    if as_file_path:
+        mono_file_path = Path(gettempdir()) / f"{uuid4()}.mid"
+        file.save(str(mono_file_path))
+        return mono_file_path
 
     return file

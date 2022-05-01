@@ -5,17 +5,20 @@ from pathlib import Path
 from typing import Optional
 
 import dill
+import numpy as np
 from deap.tools import Logbook
 from scipy.io import wavfile
 
 from src.config.base import REGISTRY
 from src.database.dataset import load_formatted_audio
+from src.database.factory import DBFactory
 from src.daw.audio_model import AudioBridgeTable
 from src.daw.factory import SynthHostFactory
 from src.daw.signal_processing import spectral_convergence, spectral_mse
 from src.genetic.base import SimplifiedIndividual
 from src.genetic.factory import NSGA2Factory
 from src.genetic.pareto_front import pareto_front
+from src.midi.generation import mono_midi
 from src.utils.loss_model import LossTable, TrainValTestEnum
 
 
@@ -34,44 +37,56 @@ def save_run(
     REGISTRY.add_blob(logbook_path)
 
 
+def _write_audio(bridge: AudioBridgeTable, signal: np.ndarray, replace_pattern: str):
+    file_path = bridge.audio_path.replace(".pt", replace_pattern)
+    wavfile.write(
+        file_path,
+        REGISTRY.SYNTH.sample_rate,
+        signal,
+    )
+    REGISTRY.add_blob(file_path)
+
+
 def evaluate_population(
     bridge: AudioBridgeTable,
     simplified_population: list[SimplifiedIndividual],
     write_audio: bool = False,
-    monophonic: bool = False,
+    monophonic: bool = True,
 ) -> list[LossTable]:
     sh_factory = SynthHostFactory(**dict(REGISTRY.SYNTH))
     synth_host = sh_factory()
 
-    if monophonic:
-        raise NotImplementedError
+    db_factory = DBFactory(engine_url=REGISTRY.DATABASE.url)
+    db = db_factory()
 
     _, target_signal = load_formatted_audio(bridge.audio_path)
     pareto_optimal_solutions = pareto_front(simplified_population)
 
     if write_audio:
-        file_path = bridge.audio_path.replace(".pt", ".wav")
-        wavfile.write(
-            file_path,
-            REGISTRY.SYNTH.sample_rate,
-            target_signal.cpu().numpy(),
-        )
-        REGISTRY.add_blob(file_path)
+        _write_audio(bridge, target_signal.cpu().numpy(), ".wav")
 
     evaluations = defaultdict(list)
 
     for i, solution in enumerate(pareto_optimal_solutions):
-        synth_host.set_patch(solution["parameters"])
-        inferred_audio = synth_host.render(bridge.midi_path)
+
+        if monophonic:
+            synth_params = db.get_synth_params(bridge)
+            midi_file_path = mono_midi(as_file_path=True)
+
+            synth_host.set_patch(synth_params)
+            target_signal = synth_host.render(midi_file_path)
+            synth_host.set_patch(solution["parameters"])
+            inferred_audio = synth_host.render(midi_file_path)
+
+            if write_audio:
+                _write_audio(bridge, target_signal, "_mono.wav")
+
+        else:
+            synth_host.set_patch(solution["parameters"])
+            inferred_audio = synth_host.render(bridge.midi_path)
 
         if write_audio:
-            file_path = bridge.audio_path.replace(".pt", f"_inferred_{i}.wav")
-            wavfile.write(
-                file_path,
-                REGISTRY.SYNTH.sample_rate,
-                inferred_audio,
-            )
-            REGISTRY.add_blob(file_path)
+            _write_audio(bridge, inferred_audio, f"_inferred_{i}.wav")
 
         for loss_callable in (spectral_convergence, spectral_mse):
             loss = loss_callable(inferred_audio, target_signal)
@@ -127,7 +142,7 @@ def evaluate_ga(
     audio_bridges: list[AudioBridgeTable],
     test_limit: Optional[int] = None,
     write_audio: bool = False,
-    monophonic: bool = False,
+    monophonic: bool = True,
 ) -> list[LossTable]:
 
     if test_limit is not None:

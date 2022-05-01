@@ -12,13 +12,19 @@ from torchaudio.functional import lowpass_biquad
 
 from src.config.base import REGISTRY
 from src.daw.factory import SynthHostFactory
-from src.daw.signal_transformers import StereoToMono
+from src.daw.signal_transformers import MinMax, StereoToMono
 from src.genetic.base import NSGA2
 from src.utils.temporary_context import temporary_attrs
 
 SH_FACTORY = SynthHostFactory(**dict(REGISTRY.SYNTH))
 SYNTH_HOST = SH_FACTORY()
 STEREO_TO_MONO = StereoToMono((None, 2))
+MIN_MAX_NORMALIZE = MinMax(amplitude_min=-1, amplitude_max=1)
+
+
+def _preprocess(solution: torch.Tensor) -> torch.Tensor:
+    return MIN_MAX_NORMALIZE(STEREO_TO_MONO(solution))
+
 
 OBJECTIVES = [
     (FFT.rfft, torch.abs),
@@ -49,9 +55,7 @@ def _evaluate(solution, target_signal: torch.Tensor, midi_path: Path) -> list[fl
         def _func(x):
             return reduce(lambda acc, f: f(acc), objective, x)
 
-        diff = _func(STEREO_TO_MONO(target_signal)) - _func(
-            STEREO_TO_MONO(inferred_audio)
-        )
+        diff = _func(_preprocess(target_signal)) - _func(_preprocess(inferred_audio))
         squared_diff = torch.pow(diff, 2)
         euclidean_norm = torch.sqrt(torch.sum(squared_diff)).float()
         fitness.append(euclidean_norm.item())
