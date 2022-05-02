@@ -6,6 +6,7 @@ import numpy as np
 import torch
 
 from src.config.base import PYTORCH_DEVICE, REGISTRY
+from src.daw.signal_transformers import MinMax
 
 
 class SignalProcessor:
@@ -67,6 +68,7 @@ class SignalProcessor:
 
 
 SIGNAL_PROCESSOR = SignalProcessor()
+MIN_MAX = MinMax(amplitude_min=-1, amplitude_max=1)
 
 
 def spectral_convergence(
@@ -74,10 +76,12 @@ def spectral_convergence(
 ) -> torch.Tensor:
     """
     Computes the spectral convergence of two signals, i.e. the mean magnitude-normalized
-    Euclidean norm - Esling, Philippe, et al. (2019).
+    Euclidean norm as in Esling, Philippe, et al. (2019).
+    However, the signals are min-max normalized first.
     """
-    source = SIGNAL_PROCESSOR(source)
-    target = SIGNAL_PROCESSOR(target)
+
+    source = SIGNAL_PROCESSOR(MIN_MAX(source))
+    target = SIGNAL_PROCESSOR(MIN_MAX(target))
 
     squared_diff = torch.pow(target - source, 2)
     euclidean_norm = torch.sqrt(torch.sum(squared_diff))
@@ -90,10 +94,10 @@ def spectral_mse(
     source: Union[np.ndarray, torch.Tensor], target: Union[np.ndarray, torch.Tensor]
 ) -> torch.Tensor:
     """
-    Computes the mean squared error of two signals.
+    Min-max normalizes two signals and computes the mean squared difference between them
     """
-    source = SIGNAL_PROCESSOR(source)
-    target = SIGNAL_PROCESSOR(target)
+    source = SIGNAL_PROCESSOR(MIN_MAX(source))
+    target = SIGNAL_PROCESSOR(MIN_MAX(target))
 
     squared_diff = torch.pow(target - source, 2)
     mse = torch.mean(squared_diff)

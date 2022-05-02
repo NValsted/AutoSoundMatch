@@ -631,7 +631,7 @@ def evaluate_ga_populations():
     with db.session() as session:
         for path in population_paths:
             like_str = "%" + path.name.replace("_population.pkl", ".pt")
-            print(like_str)
+
             query = select(AudioBridgeTable).where(
                 AudioBridgeTable.audio_path.like(like_str)
             )

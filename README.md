@@ -56,7 +56,7 @@ Likewise, run the following to run the entire experiment in the polyphonic setti
 make poly-benchmark
 ```
 
-Evalaution results will be stored in an SQLite database which is located at `data/local.db` by default.
+Evaluation results will be stored in an SQLite database which is located at `data/local.db` by default.
 
 ### Third-party resources
 A number of requried third-party resources are stored remotely. A make target `resources` has been provided to easily download, unpack and store these resources in proper locations. The `mono-benchmark` and `poly-benchmark` targets both invoke `resources` automatically.

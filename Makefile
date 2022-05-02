@@ -80,7 +80,7 @@ ifeq ($(OS),Windows_NT)
 else ifeq ($(OS),Darwin)
 	@echo "Not implemented - synth can be manually downloaded from https://tal-software.com//downloads/plugins/tal-noisemaker-installer.pkg"
 else
-	@if [ ! -f "${SYNTH_PATH}" ];
+	@if [ ! -f "${SYNTH_PATH}" ]; \
 	then \
 		wget https://tal-software.com/downloads/plugins/TAL-NoiseMaker_64_linux.zip -O ${DOWNLOADS_DIR}/TAL-NoiseMaker_64_linux.zip && \
 		unzip ${DOWNLOADS_DIR}/TAL-NoiseMaker_64_linux.zip "libTAL-NoiseMaker.so" -d ${DOWNLOADS_DIR} && \
@@ -96,7 +96,7 @@ endif
 	then \
 		echo "Presets already installed."; \
 	else \
-		wget https://tal-software.com//downloads/presets/TAL-NoiseMaker%20vst3.zip -O ${DOWNLOADS_DIR}/TAL-NoiseMaker%20vst3.zip && \
+		wget https://tal-software.com//downloads/presets/TAL-NoiseMaker%20vst3.zip --no-check-certificate -O ${DOWNLOADS_DIR}/TAL-NoiseMaker%20vst3.zip && \
 		unzip ${DOWNLOADS_DIR}/TAL-NoiseMaker%20vst3.zip "*.vstpreset" -d ${PRESETS_DIR} &&  \
 		rm ${DOWNLOADS_DIR}/TAL-NoiseMaker%20vst3.zip; \
 	fi

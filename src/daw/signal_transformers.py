@@ -23,7 +23,7 @@ class StereoToMono(torch.nn.Module):
 
 class MinMax(torch.nn.Module):
     """
-    Min-max mormalizes a signal to a given amplitude range.
+    Min-max normalizes a signal to a given amplitude range.
     """
 
     _processor: torch.nn.Module
