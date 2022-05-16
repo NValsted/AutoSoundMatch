@@ -130,6 +130,7 @@ def load_formatted_audio(audio_path: str) -> Tuple[torch.Tensor, torch.Tensor]:
                 sample_rate, REGISTRY.SYNTH.sample_rate
             )
             signal = resample_transform(signal)
+        signal = torch.transpose(signal, 0, 1)
 
     elif re.search(r"\.pt$", audio_path):
         signal = torch.load(audio_path).to(PYTORCH_DEVICE)

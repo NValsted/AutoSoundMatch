@@ -152,7 +152,7 @@ inspect:
 	${PYTHON_INTERPRETER_PATH} asm-cli.py inspect-registry
 
 model-suite:
-	for fxt in ae cnn flowreg mlp resnet vae wae vaeflow ; do \
+	for fxt in ae cnn flowreg mlp rescnn vae wae vaeflow ; do \
 		${PYTHON_INTERPRETER_PATH} asm-cli.py update-registry \
 			src/config/fixtures/aiflowsynth/$${fxt}.py; \
 		make model; \

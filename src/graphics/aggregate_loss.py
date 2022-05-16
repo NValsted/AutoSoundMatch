@@ -80,7 +80,7 @@ def spectral_loss_distplot(model_id: str) -> Figure:
     MSE = test_loss[test_loss["type"] == "spectral_mse"]
 
     sc_fig = ff.create_distplot([SC["value"]], ["Spectral convergence"], bin_size=0.1)
-    mse_fig = ff.create_distplot([MSE["value"]], ["Spectral MSE"], bin_size=1)
+    mse_fig = ff.create_distplot([MSE["value"]], ["Spectral MSE"], bin_size=0.1)
 
     fig = make_subplots(
         rows=2,
